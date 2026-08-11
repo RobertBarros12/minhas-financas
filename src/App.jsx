@@ -3,6 +3,7 @@ import { supabase } from './supabaseClient';
 import Summary from './components/Summary';
 import TransactionModal from './components/TransactionModal';
 import Bills from './components/Bills';
+import QuickShortcuts from './components/QuickShortcuts';
 import { Plus, LayoutDashboard, CreditCard, BarChart2, Calendar } from 'lucide-react';
 
 export default function App() {
@@ -57,7 +58,7 @@ export default function App() {
     }
   }
 
-  // 3. Alternar Pago / Pendente
+  // 3. Alternar Status (Pago / Pendente)
   async function handleToggleStatus(id) {
     const tx = transactions.find(t => t.id === id);
     if (!tx) return;
@@ -157,26 +158,8 @@ export default function App() {
                   previousBalance={0}
                 />
 
-                {/* Atalhos Rápidos */}
-                <div className="space-y-2">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Atalhos Rápidos</p>
-                  <div className="grid grid-cols-4 gap-2">
-                    {[
-                      { label: 'Uber', category: 'Uber / Transporte Público', paymentMethod: 'Cartão de Crédito', type: 'expense' },
-                      { label: 'iFood', category: 'Restaurantes & iFood', paymentMethod: 'Cartão de Crédito', type: 'expense' },
-                      { label: 'Mercado', category: 'Supermercado & Feira', paymentMethod: 'Pix / Débito', type: 'expense' },
-                      { label: 'Pix', category: 'Pix Recebido', paymentMethod: 'Conta Corrente / Pix', type: 'income' },
-                    ].map((item, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => handleOpenQuickModal(item)}
-                        className="bg-slate-900/80 hover:bg-slate-800 border border-slate-800 p-2.5 rounded-2xl text-center text-xs font-bold text-slate-200 transition active:scale-95 shadow-sm"
-                      >
-                        + {item.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                {/* Atalhos Rápidos Personalizados */}
+                <QuickShortcuts onSelectShortcut={handleOpenQuickModal} />
 
                 {/* Extrato Recente */}
                 <div className="bg-slate-900/80 rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
