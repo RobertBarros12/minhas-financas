@@ -3,7 +3,7 @@ import { supabase } from './supabaseClient';
 import Summary from './components/Summary';
 import TransactionModal from './components/TransactionModal';
 import Bills from './components/Bills';
-import { Plus, LayoutDashboard, Calendar, Target, CreditCard, BarChart2 } from 'lucide-react';
+import { Plus, LayoutDashboard, CreditCard, BarChart2, Calendar } from 'lucide-react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('inicio');
@@ -12,7 +12,7 @@ export default function App() {
   const [quickData, setQuickData] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // 1. Carregar transações do Supabase ao abrir o app
+  // 1. Carregar dados do Supabase
   useEffect(() => {
     fetchTransactions();
   }, []);
@@ -25,14 +25,14 @@ export default function App() {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Erro ao buscar transações:', error);
+      console.error('Erro ao buscar do Supabase:', error);
     } else if (data) {
       setTransactions(data);
     }
     setLoading(false);
   }
 
-  // 2. Salvar nova transação no Supabase
+  // 2. Gravar no Supabase
   async function handleSaveTransaction(newTx) {
     const payload = {
       id: newTx.id,
@@ -51,13 +51,13 @@ export default function App() {
 
     if (error) {
       console.error('Erro ao salvar no Supabase:', error);
-      alert('Erro ao salvar lançamento. Verifique sua conexão.');
+      alert('Erro ao salvar no banco de dados. Tente novamente.');
     } else {
       setTransactions(prev => [newTx, ...prev]);
     }
   }
 
-  // 3. Alternar Status (Pago / Pendente)
+  // 3. Alternar Pago / Pendente
   async function handleToggleStatus(id) {
     const tx = transactions.find(t => t.id === id);
     if (!tx) return;
@@ -70,7 +70,7 @@ export default function App() {
       .eq('id', id);
 
     if (error) {
-      console.error('Erro ao atualizar status:', error);
+      console.error('Erro ao atualizar:', error);
     } else {
       setTransactions(prev =>
         prev.map(t => (t.id === id ? { ...t, status: newStatus } : t))
@@ -78,7 +78,7 @@ export default function App() {
     }
   }
 
-  // 4. Deletar Transação
+  // 4. Excluir Lançamento
   async function handleDeleteTransaction(id) {
     const { error } = await supabase.from('transactions').delete().eq('id', id);
 
@@ -89,7 +89,7 @@ export default function App() {
     }
   }
 
-  // Cálculos consolidados para a Home
+  // Métricas Consolidadas
   const totalIncome = transactions
     .filter(t => t.type === 'income' && t.status === 'paid')
     .reduce((acc, t) => acc + Number(t.amount), 0);
@@ -115,7 +115,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans pb-24 selection:bg-cyan-500 selection:text-slate-950">
       
-      {/* Top Bar / Header */}
+      {/* Topo / Header */}
       <header className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-md border-b border-slate-800/80 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-extrabold text-slate-950 shadow-lg shadow-cyan-500/20">
@@ -138,14 +138,15 @@ export default function App() {
         </button>
       </header>
 
-      {/* Main Content Area */}
+      {/* Conteúdo Principal */}
       <main className="max-w-lg mx-auto p-4 space-y-4">
         {loading ? (
           <div className="p-12 text-center text-xs text-slate-500 animate-pulse">
-            Carregando seus dados da nuvem...
+            Carregando dados da nuvem...
           </div>
         ) : (
           <>
+            {/* ABA 1: INÍCIO */}
             {activeTab === 'inicio' && (
               <div className="space-y-4">
                 <Summary
@@ -161,10 +162,10 @@ export default function App() {
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Atalhos Rápidos</p>
                   <div className="grid grid-cols-4 gap-2">
                     {[
-                      { label: 'Uber', category: 'Uber / Transporte Público', paymentMethod: 'Cartão de Crédito' },
-                      { label: 'iFood', category: 'Restaurantes & iFood', paymentMethod: 'Cartão de Crédito' },
-                      { label: 'Mercado', category: 'Supermercado & Feira', paymentMethod: 'Pix / Débito' },
-                      { label: 'Pix', category: 'Pix Recebido', paymentMethod: 'Conta Corrente / Pix' },
+                      { label: 'Uber', category: 'Uber / Transporte Público', paymentMethod: 'Cartão de Crédito', type: 'expense' },
+                      { label: 'iFood', category: 'Restaurantes & iFood', paymentMethod: 'Cartão de Crédito', type: 'expense' },
+                      { label: 'Mercado', category: 'Supermercado & Feira', paymentMethod: 'Pix / Débito', type: 'expense' },
+                      { label: 'Pix', category: 'Pix Recebido', paymentMethod: 'Conta Corrente / Pix', type: 'income' },
                     ].map((item, idx) => (
                       <button
                         key={idx}
@@ -201,7 +202,7 @@ export default function App() {
                       ))
                     ) : (
                       <div className="p-6 text-center text-xs text-slate-500">
-                        Nenhum lançamento registrado ainda.
+                        Nenhum lançamento registrado na nuvem. Clique em "+ Lançar" para testar!
                       </div>
                     )}
                   </div>
@@ -209,6 +210,7 @@ export default function App() {
               </div>
             )}
 
+            {/* ABA 2: CONTAS */}
             {activeTab === 'contas' && (
               <Bills
                 transactions={transactions}
@@ -216,11 +218,30 @@ export default function App() {
                 onDelete={handleDeleteTransaction}
               />
             )}
+
+            {/* ABA 3: ANÁLISE */}
+            {activeTab === 'analise' && (
+              <div className="p-6 bg-slate-900/80 border border-slate-800 rounded-3xl text-center space-y-3">
+                <BarChart2 className="w-10 h-10 text-cyan-400 mx-auto" />
+                <h3 className="text-sm font-bold text-slate-100">Análise de Despesas</h3>
+                <p className="text-xs text-slate-400">Total acumulado de entradas: <strong className="text-emerald-400">{formatCurrency(totalIncome)}</strong></p>
+                <p className="text-xs text-slate-400">Total acumulado de saídas: <strong className="text-rose-400">{formatCurrency(totalExpensePaid)}</strong></p>
+              </div>
+            )}
+
+            {/* ABA 4: AGENDA */}
+            {activeTab === 'agenda' && (
+              <div className="p-6 bg-slate-900/80 border border-slate-800 rounded-3xl text-center space-y-3">
+                <Calendar className="w-10 h-10 text-cyan-400 mx-auto" />
+                <h3 className="text-sm font-bold text-slate-100">Agenda Financeira</h3>
+                <p className="text-xs text-slate-400">Suas contas fixas e pendências organizadas por data de vencimento.</p>
+              </div>
+            )}
           </>
         )}
       </main>
 
-      {/* Modal de Lançamentos */}
+      {/* Modal de Cadastro */}
       <TransactionModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -228,12 +249,14 @@ export default function App() {
         initialData={quickData}
       />
 
-      {/* Navegação Inferior (Barra de Abas) */}
+      {/* Navegação Inferior (4 ABAS COMPLETAS) */}
       <nav className="fixed bottom-0 left-0 right-0 bg-slate-950/90 backdrop-blur-lg border-t border-slate-800/80 z-40">
         <div className="max-w-lg mx-auto flex items-center justify-around p-2">
           {[
             { id: 'inicio', label: 'Início', icon: LayoutDashboard },
             { id: 'contas', label: 'Contas', icon: CreditCard },
+            { id: 'analise', label: 'Análise', icon: BarChart2 },
+            { id: 'agenda', label: 'Agenda', icon: Calendar },
           ].map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -241,7 +264,7 @@ export default function App() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex flex-col items-center gap-1 p-2 rounded-2xl w-20 transition ${
+                className={`flex flex-col items-center gap-1 p-2 rounded-2xl w-16 transition ${
                   isActive
                     ? 'text-cyan-400 bg-cyan-500/10 font-bold'
                     : 'text-slate-500 hover:text-slate-300 font-medium'
