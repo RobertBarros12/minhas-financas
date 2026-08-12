@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, DollarSign, Tag, CreditCard, Layers } from 'lucide-react';
+import { X, Layers } from 'lucide-react';
 
 export default function TransactionModal({ isOpen, onClose, onSave, initialData }) {
   const [type, setType] = useState('expense');
@@ -10,7 +10,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
   const [status, setStatus] = useState('paid');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   
-  // Estado para Compras Parceladas
+  // Estado de Parcelamento
   const [isInstallment, setIsInstallment] = useState(false);
   const [installments, setInstallments] = useState(2);
 
@@ -24,7 +24,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
 
   if (!isOpen) return null;
 
-  // Lógica de Pagamento Parcelado condicional
+  // Mostra o parcelamento apenas para métodos parceláveis em saídas
   const showInstallmentOption = type === 'expense' && (
     paymentMethod === 'Cartão de Crédito' || 
     paymentMethod === 'Crediário / Carnê' || 
@@ -41,7 +41,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
 
     const baseDate = new Date(date + 'T00:00:00');
 
-    // Lança a parcela atual e gera as parcelas dos meses subsequentes
+    // Gera o lançamento atual e projeta as parcelas futuras nos meses seguintes
     for (let i = 0; i < totalInstallments; i++) {
       const currentDate = new Date(baseDate);
       currentDate.setMonth(baseDate.getMonth() + i);
@@ -56,7 +56,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
         type,
         category,
         paymentMethod,
-        status: i === 0 ? status : 'pending', // A primeira assume o status selecionado, as futuras ficam pendentes
+        status: i === 0 ? status : 'pending', // Apenas a 1ª parcela assume o status escolhido; as demais entram como pendentes
         date: formattedDate,
         installments: totalInstallments,
         isRecurring: false,
@@ -65,7 +65,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
       onSave(newTx);
     }
 
-    // Limpa o formulário
+    // Reseta o formulário
     setAmount('');
     setDescription('');
     setIsInstallment(false);
@@ -77,7 +77,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
     <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
       <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-3xl p-5 shadow-2xl space-y-4">
         
-        {/* Topo do Modal */}
+        {/* Cabeçalho */}
         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
           <h2 className="text-sm font-extrabold text-slate-100 uppercase tracking-wider">Novo Lançamento</h2>
           <button onClick={onClose} className="p-1 rounded-xl text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition">
@@ -86,7 +86,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3.5">
-          {/* Seletor Saída x Entrada */}
+          {/* Alternador Saída / Entrada */}
           <div className="grid grid-cols-2 gap-2 p-1 bg-slate-950 rounded-2xl border border-slate-800">
             <button
               type="button"
@@ -108,7 +108,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
             </button>
           </div>
 
-          {/* Valor */}
+          {/* Campo de Valor */}
           <div className="space-y-1">
             <label className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider">Valor R$</label>
             <input
@@ -127,7 +127,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Descrição</label>
             <input
               type="text"
-              placeholder="Ex: Mercado, Uber, Parcela Carro"
+              placeholder="Ex: Mercado, Aluguel, Parcela do Carro"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-2.5 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 transition"
@@ -135,7 +135,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
             />
           </div>
 
-          {/* Forma de Pagamento e Categoria */}
+          {/* Forma de Pagamento e Categoria Agrupada */}
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Forma de Pagamento</label>
@@ -159,18 +159,44 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
                 onChange={(e) => setCategory(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-2.5 text-xs text-slate-100 focus:outline-none focus:border-cyan-500"
               >
-                <option value="Supermercado & Feira">Supermercado & Feira</option>
-                <option value="Restaurantes & iFood">Restaurantes & iFood</option>
-                <option value="Uber / Transporte Público">Uber / Transporte Público</option>
-                <option value="Vestuário, Roupas & Compras">Vestuário, Roupas & Compras</option>
-                <option value="Lazer & Entretenimento">Lazer & Entretenimento</option>
-                <option value="Gastos Aleatórios & Imprevistos">Gastos Aleatórios & Imprevistos</option>
-                <option value="Pix Recebido">Pix Recebido</option>
+                {type === 'expense' ? (
+                  <>
+                    <optgroup label="🏠 Moradia & Contas Fixas">
+                      <option value="Moradia & Contas Fixas">Moradia (Aluguel, Condomínio)</option>
+                      <option value="Contas de Consumo">Contas (Luz, Água, Internet, Gás)</option>
+                    </optgroup>
+                    <optgroup label="🛒 Alimentação">
+                      <option value="Supermercado & Feira">Supermercado & Feira</option>
+                      <option value="Restaurantes & iFood">Restaurantes & iFood</option>
+                    </optgroup>
+                    <optgroup label="🚗 Transporte & Veículo">
+                      <option value="Uber / Transporte Público">Uber / Transporte Público</option>
+                      <option value="Combustível & Manutenção">Combustível & Manutenção Carro/Moto</option>
+                    </optgroup>
+                    <optgroup label="🛍️ Compras & Pessoal">
+                      <option value="Vestuário, Roupas & Compras">Vestuário, Roupas & Compras</option>
+                      <option value="Saúde & Farmácia">Saúde & Farmácia</option>
+                      <option value="Educação & Cursos">Educação & Cursos</option>
+                    </optgroup>
+                    <optgroup label="🎉 Lazer & Dívidas">
+                      <option value="Lazer & Entretenimento">Lazer & Entretenimento</option>
+                      <option value="Financiamentos & Empréstimos">Financiamentos & Empréstimos</option>
+                      <option value="Gastos Aleatórios & Imprevistos">Gastos Aleatórios & Imprevistos</option>
+                    </optgroup>
+                  </>
+                ) : (
+                  <>
+                    <option value="Salário / Prolabore">Salário / Prolabore</option>
+                    <option value="Pix Recebido">Pix Recebido</option>
+                    <option value="Vendas & Serviços">Vendas & Serviços</option>
+                    <option value="Rendimentos & Outros">Rendimentos & Outros</option>
+                  </>
+                )}
               </select>
             </div>
           </div>
 
-          {/* PARCELAMENTO CONDICIONAL (Só aparece se for Cartão, Crediário ou Financiamento) */}
+          {/* Opção de Compra Parcelada (Aparece condicionalmente) */}
           {showInstallmentOption && (
             <div className="p-3 bg-slate-950 rounded-2xl border border-cyan-500/30 space-y-2">
               <div className="flex items-center justify-between">
@@ -230,7 +256,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
             </div>
           </div>
 
-          {/* Botão de Confirmar */}
+          {/* Botão de Envio */}
           <button
             type="submit"
             className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-extrabold py-3 rounded-2xl text-xs shadow-lg shadow-cyan-500/25 active:scale-95 transition"
