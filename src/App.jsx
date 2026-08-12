@@ -201,11 +201,12 @@ export default function App() {
     .filter(t => t.type === 'expense' && t.status === 'pending')
     .reduce((acc, t) => acc + Number(t.amount || 0), 0);
 
-  // Total de dinheiro guardado nas Caixinhas
+  // Total de dinheiro guardado nas Caixinhas e Investimentos
   const totalVaultsAmount = vaults.reduce((acc, v) => acc + Number(v.currentAmount || 0), 0);
+  const totalInvestedAmount = investments.reduce((acc, i) => acc + Number(i.amount || 0), 0);
 
-  // Saldo Líquido Livre (Descontando as Caixinhas/Reservas)
-  const currentBalance = totalIncome - totalExpensePaid - totalVaultsAmount;
+  // Saldo Líquido Livre (Descontando as Caixinhas e Investimentos)
+  const currentBalance = totalIncome - totalExpensePaid - totalVaultsAmount - totalInvestedAmount;
 
   const calculateScore = () => {
     if (totalIncome === 0 && totalExpensePaid === 0) return 100;
@@ -695,7 +696,7 @@ export default function App() {
         initialData={quickData}
       />
 
-      {/* Menu Inferior Completo */}
+      {/* Menu Inferior Completo (6 Abas) */}
       <nav className="fixed bottom-0 left-0 right-0 bg-slate-950/90 backdrop-blur-lg border-t border-slate-800/80 z-40 shadow-2xl">
         <div className="max-w-lg mx-auto flex items-center justify-around p-1.5">
           {[
