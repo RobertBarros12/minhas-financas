@@ -28,7 +28,7 @@ export default function App() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
 
-  // Estados do Calendário da Agenda
+  // Estados do Calendário
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(new Date().getDate());
 
@@ -79,11 +79,12 @@ export default function App() {
     localStorage.setItem('minhas_financas_investments', JSON.stringify(newInvestments));
   };
 
+  // Caixinhas/Reservas conectadas com o Extrato e Saldo Real
   const handleCreateVault = (newVault) => {
     saveVaults([...vaults, newVault]);
   };
 
-  const handleUpdateVaultAmount = (vaultId, delta) => {
+  const handleUpdateVaultAmount = (vaultId, delta, vaultName) => {
     const updated = vaults.map(v => {
       if (v.id === vaultId) {
         const nextAmount = Math.max(0, Number(v.currentAmount || 0) + delta);
@@ -92,6 +93,22 @@ export default function App() {
       return v;
     });
     saveVaults(updated);
+
+    const isAdding = delta > 0;
+    const tx = {
+      id: `vault-${Date.now()}`,
+      description: isAdding ? `Guardado em Reserva: ${vaultName}` : `Resgate de Reserva: ${vaultName}`,
+      amount: Math.abs(delta).toFixed(2),
+      type: isAdding ? 'expense' : 'income',
+      category: 'Reserva & Caixinhas',
+      paymentMethod: 'Conta Corrente / Pix',
+      status: 'paid',
+      date: new Date().toISOString().split('T')[0],
+      installments: 1,
+      isRecurring: false,
+    };
+
+    handleSaveTransaction(tx);
   };
 
   const handleDeleteVault = (vaultId) => {
@@ -99,8 +116,24 @@ export default function App() {
     saveVaults(vaults.filter(v => v.id !== vaultId));
   };
 
+  // Investimentos conectados com o Extrato e Saldo Real
   const handleCreateInvestment = (newInvest) => {
     saveInvestments([...investments, newInvest]);
+
+    const investTx = {
+      id: `invest-${Date.now()}`,
+      description: `Aporte Investimento: ${newInvest.name}`,
+      amount: Number(newInvest.amount).toFixed(2),
+      type: 'expense',
+      category: 'Investimentos & Aplicações',
+      paymentMethod: 'Conta Corrente / Pix',
+      status: 'paid',
+      date: newInvest.date || new Date().toISOString().split('T')[0],
+      installments: 1,
+      isRecurring: false,
+    };
+
+    handleSaveTransaction(investTx);
   };
 
   const handleDeleteInvestment = (id) => {
@@ -209,12 +242,11 @@ export default function App() {
     }
   }
 
-  // 1. Transações do Mês Selecionado
+  // Transações Filtradas por Mês/Ano
   const currentMonthTransactions = transactions.filter(
     t => t.date && t.date.startsWith(selectedMonthYear)
   );
 
-  // 2. Cálculo dos Ganhos e Gastos
   const totalIncome = currentMonthTransactions
     .filter(t => t.type === 'income' && t.status === 'paid')
     .reduce((acc, t) => acc + Number(t.amount || 0), 0);
@@ -227,7 +259,7 @@ export default function App() {
     .filter(t => t.type === 'expense' && t.status === 'pending')
     .reduce((acc, t) => acc + Number(t.amount || 0), 0);
 
-  // 3. Saldo Real em Conta Corrente (Entradas - Saídas)
+  // Saldo Real em Conta Corrente
   const currentBalance = totalIncome - totalExpensePaid;
 
   const calculateScore = () => {
@@ -719,7 +751,7 @@ export default function App() {
         initialData={quickData}
       />
 
-      {/* Menu Inferior Completo (6 Abas) */}
+      {/* Menu Inferior Completo */}
       <nav className="fixed bottom-0 left-0 right-0 bg-slate-950/90 backdrop-blur-lg border-t border-slate-800/80 z-40 shadow-2xl">
         <div className="max-w-lg mx-auto flex items-center justify-around p-1.5">
           {[
