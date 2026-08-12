@@ -22,14 +22,17 @@ export default function App() {
   const [quickData, setQuickData] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Seletor de Mês/Ano no topo
   const [selectedMonthYear, setSelectedMonthYear] = useState(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
 
+  // Estados do Calendário da Agenda
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(new Date().getDate());
 
+  // Ranking
   const [rankingMode, setRankingMode] = useState('items');
   const [expandedMethod, setExpandedMethod] = useState(null);
 
@@ -105,7 +108,6 @@ export default function App() {
     saveInvestments(investments.filter(i => i.id !== id));
   };
 
-  // Função para adicionar Lucro/Dividendo e gerar uma transação de entrada automática no Início
   const handleAddYield = (investId, val, investName) => {
     const updated = investments.map(i => {
       if (i.id === investId) {
@@ -115,7 +117,6 @@ export default function App() {
     });
     saveInvestments(updated);
 
-    // Lança automaticamente o ganho no extrato e saldo
     const yieldTx = {
       id: `yield-${Date.now()}`,
       description: `Rendimento: ${investName}`,
@@ -208,11 +209,12 @@ export default function App() {
     }
   }
 
-  // Transações Filtradas
+  // 1. Transações do Mês Selecionado
   const currentMonthTransactions = transactions.filter(
     t => t.date && t.date.startsWith(selectedMonthYear)
   );
 
+  // 2. Cálculo dos Ganhos e Gastos
   const totalIncome = currentMonthTransactions
     .filter(t => t.type === 'income' && t.status === 'paid')
     .reduce((acc, t) => acc + Number(t.amount || 0), 0);
@@ -225,11 +227,8 @@ export default function App() {
     .filter(t => t.type === 'expense' && t.status === 'pending')
     .reduce((acc, t) => acc + Number(t.amount || 0), 0);
 
-  const totalVaultsAmount = vaults.reduce((acc, v) => acc + Number(v.currentAmount || 0), 0);
-  const totalInvestedAmount = investments.reduce((acc, i) => acc + Number(i.amount || 0), 0);
-
-  // Saldo Líquido Descontando Reservas e Investimentos
-  const currentBalance = totalIncome - totalExpensePaid - totalVaultsAmount - totalInvestedAmount;
+  // 3. Saldo Real em Conta Corrente (Entradas - Saídas)
+  const currentBalance = totalIncome - totalExpensePaid;
 
   const calculateScore = () => {
     if (totalIncome === 0 && totalExpensePaid === 0) return 100;
@@ -301,6 +300,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans pb-24 selection:bg-cyan-500 selection:text-slate-950">
       
+      {/* Header com Seletor de Mês/Ano */}
       <header className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-md border-b border-slate-800/80 px-4 py-3 flex items-center justify-between shadow-lg shadow-black/50">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-extrabold text-slate-950 shadow-lg shadow-cyan-500/30">
@@ -332,6 +332,7 @@ export default function App() {
         </div>
       </header>
 
+      {/* Conteúdo Principal */}
       <main className="max-w-lg mx-auto p-4 space-y-4">
         {loading ? (
           <div className="p-12 text-center text-xs text-slate-500 animate-pulse">
@@ -718,6 +719,7 @@ export default function App() {
         initialData={quickData}
       />
 
+      {/* Menu Inferior Completo (6 Abas) */}
       <nav className="fixed bottom-0 left-0 right-0 bg-slate-950/90 backdrop-blur-lg border-t border-slate-800/80 z-40 shadow-2xl">
         <div className="max-w-lg mx-auto flex items-center justify-around p-1.5">
           {[
