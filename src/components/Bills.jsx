@@ -12,23 +12,20 @@ export default function Bills({ transactions, onToggleStatus, onDelete }) {
   const now = new Date();
   const currentMonthYear = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-  // 1. Filtro Abrangente para incluir todos os Vencimentos, Parcelados, Financiamentos e Contas do Mês
+  // 1. Filtro Geral do Mês para a aba Contas
   const currentMonthBills = transactions.filter(t => {
     if (t.type !== 'expense') return false;
     
     const isThisMonth = t.date && t.date.startsWith(currentMonthYear);
     if (!isThisMonth) return false;
 
-    // É um parcelamento? (Ex: 1/3, 1/36)
     const isInstallmentTx = (t.installments && t.installments > 1) || /\(\d+\/\d+\)/.test(t.description);
 
-    // Método de pagamento de contas
     const isBillMethod = 
       t.paymentMethod === 'Cartão de Crédito' || 
       t.paymentMethod === 'Crediário / Carnê' || 
       t.paymentMethod === 'Financiamento';
 
-    // Categoria de contas fixas / financiamentos
     const isBillCategory = 
       t.category === 'Moradia & Contas Fixas' ||
       t.category === 'Contas de Consumo' ||
@@ -36,22 +33,37 @@ export default function Bills({ transactions, onToggleStatus, onDelete }) {
       t.category === 'Financiamentos & Empréstimos' ||
       t.isRecurring;
 
-    // Se atender a qualquer um dos critérios ou estiver pendente, entra na aba Contas
     return isInstallmentTx || isBillMethod || isBillCategory || t.status === 'pending';
   });
 
-  // 2. Filtro pelas sub-abas superiores
+  // 2. Filtro estrito por sub-aba (Sem vazar Financiamento para Parcelados)
   const filteredBills = currentMonthBills.filter(t => {
-    if (filter === 'cartao') return t.paymentMethod === 'Cartão de Crédito';
+    const isFinancing = t.paymentMethod === 'Financiamento' || 
+                        t.category === 'Financiamentos & Empréstimos' || 
+                        t.description.toLowerCase().includes('moto') ||
+                        t.description.toLowerCase().includes('carro');
+
+    if (filter === 'cartao') {
+      return t.paymentMethod === 'Cartão de Crédito';
+    }
+
     if (filter === 'financiamento') {
-      return t.paymentMethod === 'Financiamento' || t.category === 'Financiamentos & Empréstimos' || t.description.toLowerCase().includes('moto');
+      return isFinancing;
     }
+
     if (filter === 'parcelados') {
-      return t.paymentMethod === 'Crediário / Carnê' || (t.installments && t.installments > 1) || /\(\d+\/\d+\)/.test(t.description);
+      // Exclui financiamentos da sub-aba de parcelados/carnê
+      if (isFinancing) return false;
+
+      return t.paymentMethod === 'Crediário / Carnê' || 
+             (t.installments && t.installments > 1) || 
+             /\(\d+\/\d+\)/.test(t.description);
     }
+
     if (filter === 'assinaturas') {
       return t.isRecurring || t.category === 'Assinaturas & Serviços Recorrentes';
     }
+
     return true; // 'all' - Vencimentos do Mês
   });
 
