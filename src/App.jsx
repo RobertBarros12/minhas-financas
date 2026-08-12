@@ -4,7 +4,7 @@ import Summary from './components/Summary';
 import TransactionModal from './components/TransactionModal';
 import Bills from './components/Bills';
 import QuickShortcuts from './components/QuickShortcuts';
-import { Plus, LayoutDashboard, CreditCard, BarChart2, Calendar, CheckCircle2, Clock, ShieldCheck, AlertTriangle, TrendingUp, Trophy, Flame } from 'lucide-react';
+import { Plus, LayoutDashboard, CreditCard, BarChart2, Calendar, CheckCircle2, Clock, ShieldCheck, AlertTriangle, TrendingUp, Trophy, Flame, Trash2 } from 'lucide-react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('inicio');
@@ -15,12 +15,17 @@ export default function App() {
 
   // Paleta de cores moderna por categoria
   const categoryColors = {
-    'Alimentação / Mercado': 'from-amber-500 to-orange-500',
-    'Restaurantes & iFood': 'from-orange-500 to-rose-500',
+    'Moradia & Contas Fixas': 'from-blue-600 to-indigo-600',
+    'Contas de Consumo': 'from-sky-500 to-blue-500',
     'Supermercado & Feira': 'from-emerald-500 to-teal-500',
+    'Restaurantes & iFood': 'from-orange-500 to-rose-500',
     'Uber / Transporte Público': 'from-purple-500 to-indigo-500',
+    'Combustível & Manutenção': 'from-violet-500 to-purple-600',
     'Vestuário, Roupas & Compras': 'from-cyan-500 to-blue-500',
+    'Saúde & Farmácia': 'from-red-500 to-rose-500',
+    'Educação & Cursos': 'from-amber-500 to-yellow-500',
     'Lazer & Entretenimento': 'from-pink-500 to-rose-500',
+    'Financiamentos & Empréstimos': 'from-rose-600 to-red-700',
     'Gastos Aleatórios & Imprevistos': 'from-slate-400 to-slate-600',
   };
 
@@ -87,11 +92,15 @@ export default function App() {
     }
   }
 
+  // Função para Deletar do Supabase com confirmação
   async function handleDeleteTransaction(id) {
+    if (!window.confirm('Tem certeza que deseja excluir este lançamento?')) return;
+
     const { error } = await supabase.from('transactions').delete().eq('id', id);
 
     if (error) {
       console.error('Erro ao deletar:', error);
+      alert('Erro ao excluir lançamento.');
     } else {
       setTransactions(prev => prev.filter(t => t.id !== id));
     }
@@ -129,16 +138,13 @@ export default function App() {
     .sort((a, b) => Number(b.amount) - Number(a.amount))
     .slice(0, 5);
 
-  // Saúde Financeira (Porcentagem comprometida da renda)
-  const commitmentRatio = totalIncome > 0 ? Math.round((totalExpensePaid / totalIncome) * 100) : 0;
-
-  // Projeção Simples para Fim do Mês (baseado em ~30 dias)
+  // Projeção Simples para Fim do Mês
   const currentDay = new Date().getDate() || 1;
   const projectedExpense = Math.round((totalExpensePaid / currentDay) * 30);
 
-  // Regra 50/30/20 (Estimativa por Categorias)
+  // Regra 50/30/20
   const needsExpenses = transactions
-    .filter(t => t.type === 'expense' && (t.category?.includes('Mercado') || t.category?.includes('Contas') || t.category?.includes('Saúde')))
+    .filter(t => t.type === 'expense' && (t.category?.includes('Mercado') || t.category?.includes('Contas') || t.category?.includes('Moradia')))
     .reduce((acc, t) => acc + Number(t.amount), 0);
 
   const wantsExpenses = totalExpensePaid - needsExpenses;
@@ -201,7 +207,7 @@ export default function App() {
 
                 <QuickShortcuts onSelectShortcut={handleOpenQuickModal} />
 
-                {/* Extrato Recente */}
+                {/* Extrato Recente com Opção de Excluir */}
                 <div className="bg-slate-900/80 rounded-2xl border border-slate-800 overflow-hidden shadow-xl backdrop-blur-sm">
                   <div className="p-3 border-b border-slate-800/80 flex items-center justify-between">
                     <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Lançamentos Recentes</h3>
@@ -210,16 +216,26 @@ export default function App() {
 
                   <div className="divide-y divide-slate-800/60">
                     {transactions.length > 0 ? (
-                      transactions.slice(0, 5).map(item => (
-                        <div key={item.id} className="p-3.5 flex items-center justify-between hover:bg-slate-800/40 transition">
+                      transactions.slice(0, 10).map(item => (
+                        <div key={item.id} className="p-3.5 flex items-center justify-between hover:bg-slate-800/40 transition group">
                           <div className="space-y-0.5">
                             <p className="text-xs font-semibold text-slate-200">{item.description}</p>
                             <p className="text-[10px] text-slate-400">{item.category} • {item.date}</p>
                           </div>
-                          <div className="text-right">
+                          
+                          <div className="flex items-center gap-3">
                             <span className={`text-xs font-bold ${item.type === 'income' ? 'text-emerald-400' : 'text-slate-200'}`}>
                               {item.type === 'income' ? '+' : '-'} {formatCurrency(item.amount)}
                             </span>
+
+                            {/* Botão de Excluir Lançamento */}
+                            <button
+                              onClick={() => handleDeleteTransaction(item.id)}
+                              className="text-slate-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-500/10 transition"
+                              title="Excluir lançamento"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           </div>
                         </div>
                       ))
@@ -242,11 +258,10 @@ export default function App() {
               />
             )}
 
-            {/* ABA 3: ANÁLISE ULTRA-MODERNA + RANKING */}
+            {/* ABA 3: ANÁLISE */}
             {activeTab === 'analise' && (
               <div className="space-y-4">
-                
-                {/* 1. RANKING DOS MAIORES GASTOS */}
+                {/* Ranking Top 5 */}
                 <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl space-y-3">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                     <div className="flex items-center gap-2">
@@ -287,7 +302,7 @@ export default function App() {
                   )}
                 </div>
 
-                {/* 2. REGRA 50/30/20 */}
+                {/* Regra 50/30/20 */}
                 <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl space-y-3">
                   <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
                     <Flame className="w-5 h-5 text-cyan-400" />
@@ -317,7 +332,7 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* 3. CARD DE PROJEÇÃO DE GASTOS */}
+                {/* Projeção para Fim do Mês */}
                 <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl flex items-center justify-between">
                   <div className="space-y-1">
                     <div className="flex items-center gap-1.5">
@@ -331,7 +346,7 @@ export default function App() {
                   </span>
                 </div>
 
-                {/* 4. DETALHAMENTO POR CATEGORIA COM CORES */}
+                {/* Detalhamento por Categoria */}
                 <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl space-y-3 shadow-xl">
                   <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
                     <BarChart2 className="w-5 h-5 text-cyan-400" />
@@ -394,9 +409,18 @@ export default function App() {
                               <p className="text-[10px] text-slate-400">Vencimento: {item.date}</p>
                             </div>
                           </div>
-                          <span className={`text-xs font-bold ${item.status === 'paid' ? 'text-slate-500 line-through' : 'text-amber-400'}`}>
-                            {formatCurrency(item.amount)}
-                          </span>
+                          
+                          <div className="flex items-center gap-3">
+                            <span className={`text-xs font-bold ${item.status === 'paid' ? 'text-slate-500 line-through' : 'text-amber-400'}`}>
+                              {formatCurrency(item.amount)}
+                            </span>
+                            <button
+                              onClick={() => handleDeleteTransaction(item.id)}
+                              className="text-slate-500 hover:text-rose-400 p-1 rounded transition"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
                       ))
                     ) : (
@@ -418,7 +442,7 @@ export default function App() {
         initialData={quickData}
       />
 
-      {/* Navegação Inferior Modernizada */}
+      {/* Navegação Inferior */}
       <nav className="fixed bottom-0 left-0 right-0 bg-slate-950/90 backdrop-blur-lg border-t border-slate-800/80 z-40 shadow-2xl">
         <div className="max-w-lg mx-auto flex items-center justify-around p-2">
           {[
