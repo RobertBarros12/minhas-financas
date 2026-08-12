@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { CreditCard, Calendar, CheckCircle, Clock, Trash2, Car, ShoppingBag, RefreshCw } from 'lucide-react';
 
-export default function Bills({ transactions, onToggleStatus, onDelete }) {
+export default function Bills({ transactions, onToggleStatus, onDelete, selectedMonthYear }) {
   const [filter, setFilter] = useState('all');
 
   const formatCurrency = (val) => {
@@ -9,15 +9,16 @@ export default function Bills({ transactions, onToggleStatus, onDelete }) {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(num);
   };
 
-  const now = new Date();
-  const currentMonthYear = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  // Usa o mês/ano selecionado no topo ou, caso não informado, usa o mês atual
+  const activeMonthYear = selectedMonthYear || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
 
-  // 1. Filtro Geral do Mês para a aba Contas
+  // 1. Filtra as contas pertencentes estritamente ao mês/ano selecionado
   const currentMonthBills = transactions.filter(t => {
     if (t.type !== 'expense') return false;
     
-    const isThisMonth = t.date && t.date.startsWith(currentMonthYear);
-    if (!isThisMonth) return false;
+    // Verifica se a data do lançamento inicia com o ano-mês selecionado (Ex: 2026-08, 2026-09)
+    const isSelectedMonth = t.date && t.date.startsWith(activeMonthYear);
+    if (!isSelectedMonth) return false;
 
     const isInstallmentTx = (t.installments && t.installments > 1) || /\(\d+\/\d+\)/.test(t.description);
 
@@ -36,7 +37,7 @@ export default function Bills({ transactions, onToggleStatus, onDelete }) {
     return isInstallmentTx || isBillMethod || isBillCategory || t.status === 'pending';
   });
 
-  // 2. Filtro estrito por sub-aba (Sem vazar Financiamento para Parcelados)
+  // 2. Filtro pelas sub-abas superiores sem vazar Financiamento para Parcelados
   const filteredBills = currentMonthBills.filter(t => {
     const isFinancing = t.paymentMethod === 'Financiamento' || 
                         t.category === 'Financiamentos & Empréstimos' || 
@@ -52,7 +53,6 @@ export default function Bills({ transactions, onToggleStatus, onDelete }) {
     }
 
     if (filter === 'parcelados') {
-      // Exclui financiamentos da sub-aba de parcelados/carnê
       if (isFinancing) return false;
 
       return t.paymentMethod === 'Crediário / Carnê' || 
@@ -117,7 +117,7 @@ export default function Bills({ transactions, onToggleStatus, onDelete }) {
       {/* Lista de Vencimentos */}
       <div className="bg-slate-900/80 rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
         <div className="p-3 border-b border-slate-800 flex items-center justify-between">
-          <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Lançamentos da Categoria</h3>
+          <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Lançamentos de {activeMonthYear}</h3>
           <span className="text-[10px] text-slate-400">{filteredBills.length} item(ns)</span>
         </div>
 
@@ -158,7 +158,7 @@ export default function Bills({ transactions, onToggleStatus, onDelete }) {
             ))
           ) : (
             <div className="p-8 text-center text-xs text-slate-500">
-              Nenhuma conta para esta sub-aba no mês.
+              Nenhuma conta para esta sub-aba no mês selecionado.
             </div>
           )}
         </div>

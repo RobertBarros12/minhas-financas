@@ -32,7 +32,7 @@ export default function App() {
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(new Date().getDate());
 
-  // Ranking: 'items' (Maiores Gastos) ou 'categories' (Por Categoria)
+  // Ranking
   const [rankingMode, setRankingMode] = useState('items');
   const [expandedCategory, setExpandedCategory] = useState(null);
 
@@ -257,7 +257,6 @@ export default function App() {
     .filter(t => t.type === 'expense' && t.status === 'pending')
     .reduce((acc, t) => acc + Number(t.amount || 0), 0);
 
-  // Saldo Real em Conta Corrente
   const currentBalance = totalIncome - totalExpensePaid;
 
   const calculateScore = () => {
@@ -281,13 +280,11 @@ export default function App() {
   );
   const totalSubscriptionsMonthly = subscriptions.reduce((acc, t) => acc + Number(t.amount || 0), 0);
 
-  // Rankings de Gastos
   const topExpensesRanking = [...currentMonthTransactions]
     .filter(t => t.type === 'expense')
     .sort((a, b) => Number(b.amount || 0) - Number(a.amount || 0))
     .slice(0, 5);
 
-  // Agrupamento por Categoria para o Ranking
   const expensesByCategory = currentMonthTransactions
     .filter(t => t.type === 'expense')
     .reduce((acc, t) => {
@@ -425,12 +422,13 @@ export default function App() {
               </div>
             )}
 
-            {/* ABA 2: CONTAS */}
+            {/* ABA 2: CONTAS (CONECTADA AO SELETOR DE MÊS) */}
             {activeTab === 'contas' && (
               <Bills
                 transactions={transactions}
                 onToggleStatus={handleToggleStatus}
                 onDelete={handleDeleteTransaction}
+                selectedMonthYear={selectedMonthYear}
               />
             )}
 
@@ -503,7 +501,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* RANKING FINANCEIRO (Maiores Gastos x Por Categoria) */}
                 <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl space-y-3">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                     <div className="flex items-center gap-2">
