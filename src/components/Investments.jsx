@@ -1,16 +1,37 @@
 import React, { useState } from 'react';
-import { TrendingUp, Plus, DollarSign, PieChart, ShieldCheck, Trash2 } from 'lucide-react';
+import { TrendingUp, Plus, DollarSign, Trash2, ArrowUpRight, Award, ShieldCheck } from 'lucide-react';
 
-export default function Investments({ investments = [], onCreateInvestment, onDeleteInvestment }) {
+export default function Investments({ investments = [], onCreateInvestment, onDeleteInvestment, onAddYield }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isYieldModalOpen, setIsYieldModalOpen] = useState(false);
+  const [selectedInvest, setSelectedYieldInvest] = useState(null);
+
+  // Estados Novo Investimento
   const [name, setName] = useState('');
   const [category, setCategory] = useState('Renda Fixa (CDB / Tesouro)');
   const [amount, setAmount] = useState('');
 
+  // Estado Novo Rendimento/Dividendo
+  const [yieldAmount, setYieldAmount] = useState('');
+
   const formatCurrency = (val) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(val) || 0);
 
+  // Cálculos Consolidados
   const totalInvested = investments.reduce((acc, item) => acc + Number(item.amount || 0), 0);
+  const totalYields = investments.reduce((acc, item) => acc + Number(item.yieldTotal || 0), 0);
+  
+  // Porcentagem de Lucro
+  const profitPercentage = totalInvested > 0 
+    ? ((totalYields / totalInvested) * 100).toFixed(2) 
+    : '0.00';
+
+  const categoryBadgeColors = {
+    'Renda Fixa (CDB / Tesouro)': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
+    'Ações & Fundos Imobiliários': 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30',
+    'Criptomoedas & Ativos Digitais': 'bg-purple-500/10 text-purple-400 border-purple-500/30',
+    'Fundos de Investimento / Previdência': 'bg-amber-500/10 text-amber-400 border-amber-500/30',
+  };
 
   const handleCreate = (e) => {
     e.preventDefault();
@@ -21,6 +42,7 @@ export default function Investments({ investments = [], onCreateInvestment, onDe
       name,
       category,
       amount: parseFloat(amount.replace(',', '.')),
+      yieldTotal: 0,
       date: new Date().toISOString().split('T')[0],
     };
 
@@ -30,9 +52,22 @@ export default function Investments({ investments = [], onCreateInvestment, onDe
     setIsModalOpen(false);
   };
 
+  const handleYieldSubmit = (e) => {
+    e.preventDefault();
+    if (!yieldAmount || !selectedInvest) return;
+
+    const val = parseFloat(yieldAmount.replace(',', '.'));
+    onAddYield(selectedInvest.id, val, selectedInvest.name);
+
+    setYieldAmount('');
+    setSelectedYieldInvest(null);
+    setIsYieldModalOpen(false);
+  };
+
   return (
     <div className="space-y-4">
-      {/* Topo do Módulo de Investimentos */}
+      
+      {/* 1. CARDS DE PATRIMÔNIO E LUCRO REAL */}
       <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl space-y-3">
         <div className="flex items-center justify-between border-b border-slate-800 pb-2">
           <div className="flex items-center gap-2">
@@ -40,8 +75,8 @@ export default function Investments({ investments = [], onCreateInvestment, onDe
               <TrendingUp className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-xs font-extrabold text-slate-100 uppercase tracking-wider">Patrimônio Investido</h3>
-              <p className="text-[10px] text-slate-400">Seu dinheiro trabalhando por você</p>
+              <h3 className="text-xs font-extrabold text-slate-100 uppercase tracking-wider">Carteira de Investimentos</h3>
+              <p className="text-[10px] text-slate-400">Patrimônio e Lucro em Tempo Real</p>
             </div>
           </div>
 
@@ -53,13 +88,25 @@ export default function Investments({ investments = [], onCreateInvestment, onDe
           </button>
         </div>
 
-        <div className="pt-1">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Acumulado</span>
-          <h2 className="text-2xl font-black text-emerald-400 mt-0.5">{formatCurrency(totalInvested)}</h2>
+        <div className="grid grid-cols-2 gap-3 pt-1">
+          <div>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Investido</span>
+            <h2 className="text-xl font-black text-slate-100 mt-0.5">{formatCurrency(totalInvested)}</h2>
+          </div>
+
+          <div className="text-right">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Lucro / Rendimento</span>
+            <div className="flex items-center justify-end gap-1 mt-0.5">
+              <h2 className="text-xl font-black text-emerald-400">+{formatCurrency(totalYields)}</h2>
+              <span className="text-[10px] font-extrabold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-md">
+                +{profitPercentage}%
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Lista de Ativos Investidos */}
+      {/* 2. LISTA DE ATIVOS COM SELOS E BOTÃO DE LUCRO */}
       <div className="bg-slate-900/80 rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
         <div className="p-3 border-b border-slate-800 flex items-center justify-between">
           <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Meus Ativos</h3>
@@ -68,36 +115,65 @@ export default function Investments({ investments = [], onCreateInvestment, onDe
 
         <div className="divide-y divide-slate-800/60">
           {investments && investments.length > 0 ? (
-            investments.map(item => (
-              <div key={item.id} className="p-3.5 flex items-center justify-between hover:bg-slate-800/40 transition">
-                <div className="space-y-0.5">
-                  <p className="text-xs font-semibold text-slate-200">{item.name}</p>
-                  <p className="text-[10px] text-slate-400">{item.category} • {item.date}</p>
-                </div>
+            investments.map(item => {
+              const badgeStyle = categoryBadgeColors[item.category] || 'bg-slate-800 text-slate-300 border-slate-700';
+              const itemYield = Number(item.yieldTotal || 0);
 
-                <div className="flex items-center gap-3">
-                  <span className="text-xs font-black text-emerald-400">
-                    {formatCurrency(item.amount)}
-                  </span>
-                  <button
-                    onClick={() => onDeleteInvestment(item.id)}
-                    className="text-slate-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-500/10 transition"
-                    title="Excluir investimento"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+              return (
+                <div key={item.id} className="p-3.5 space-y-2 hover:bg-slate-800/40 transition">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-bold text-slate-100">{item.name}</p>
+                        <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-md border ${badgeStyle}`}>
+                          {item.category.split(' ')[0]}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-400">Aportado em {item.date}</p>
+                    </div>
+
+                    <div className="text-right">
+                      <p className="text-xs font-black text-emerald-400">{formatCurrency(item.amount)}</p>
+                      {itemYield > 0 && (
+                        <p className="text-[10px] font-bold text-emerald-400">
+                          Lucro: +{formatCurrency(itemYield)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Ações Rápidas por Ativo */}
+                  <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-800/40">
+                    <button
+                      onClick={() => {
+                        setSelectedYieldInvest(item);
+                        setIsYieldModalOpen(true);
+                      }}
+                      className="text-[10px] font-bold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 hover:bg-cyan-500/20 px-2.5 py-1 rounded-lg flex items-center gap-1 transition"
+                    >
+                      <ArrowUpRight className="w-3 h-3" /> + Lançar Dividendo/Lucro
+                    </button>
+
+                    <button
+                      onClick={() => onDeleteInvestment(item.id)}
+                      className="text-slate-500 hover:text-rose-400 p-1 rounded transition"
+                      title="Excluir investimento"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           ) : (
             <div className="p-8 text-center text-xs text-slate-500">
-              Nenhum investimento registrado. Clique em "+ Aporte" para começar a investir!
+              Nenhum investimento registrado. Clique em "+ Aporte" para começar!
             </div>
           )}
         </div>
       </div>
 
-      {/* Modal de Cadastro de Investimento */}
+      {/* MODAL NOVO APORTE */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-3xl p-5 space-y-4 shadow-2xl">
@@ -108,7 +184,7 @@ export default function Investments({ investments = [], onCreateInvestment, onDe
                 <label className="text-[10px] font-bold text-slate-400 uppercase">Nome do Ativo / Banco</label>
                 <input
                   type="text"
-                  placeholder="Ex: CDB 110% Sofisa, Tesouro Selic, IVVB11"
+                  placeholder="Ex: CDB Sofisa 110%, Tesouro Selic, MXRF11"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-2.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
@@ -156,13 +232,61 @@ export default function Investments({ investments = [], onCreateInvestment, onDe
                   type="submit"
                   className="flex-1 py-2 rounded-xl text-xs font-bold bg-emerald-500 text-slate-950 font-black uppercase"
                 >
-                  Confirmar
+                  Confirmar Aporte
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* MODAL LANÇAR DIVIDENDO/LUCRO */}
+      {isYieldModalOpen && selectedInvest && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-3xl p-5 space-y-4 shadow-2xl">
+            <h3 className="text-xs font-extrabold text-slate-100 uppercase tracking-wider">
+              Lançar Lucro/Dividendo em "{selectedInvest.name}"
+            </h3>
+
+            <p className="text-[11px] text-slate-400">
+              Esse valor entrará como dinheiro novo na sua conta corrente no Início!
+            </p>
+            
+            <form onSubmit={handleYieldSubmit} className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-cyan-400 uppercase">Valor do Lucro R$</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="0,00"
+                  value={yieldAmount}
+                  onChange={(e) => setYieldAmount(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-lg font-black text-cyan-400 focus:outline-none focus:border-cyan-500"
+                  required
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsYieldModalOpen(false)}
+                  className="flex-1 py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-400"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2 rounded-xl text-xs font-bold bg-cyan-500 text-slate-950 font-black uppercase"
+                >
+                  Receber Lucro
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
