@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Layers } from 'lucide-react';
+import { X, Layers, RefreshCw } from 'lucide-react';
 
 export default function TransactionModal({ isOpen, onClose, onSave, initialData }) {
   const [type, setType] = useState('expense');
@@ -12,8 +12,8 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
   
   const [isInstallment, setIsInstallment] = useState(false);
   const [installments, setInstallments] = useState(2);
+  const [isRecurring, setIsRecurring] = useState(false);
 
-  // Atualiza os valores padrão ao alternar entre Saída (Gasto) e Entrada (Ganho)
   useEffect(() => {
     if (type === 'income') {
       setPaymentMethod('Conta Corrente / Pix');
@@ -67,7 +67,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
         status: i === 0 ? status : 'pending',
         date: formattedDate,
         installments: totalInstallments,
-        isRecurring: false,
+        isRecurring: isRecurring,
       };
 
       onSave(newTx);
@@ -76,6 +76,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
     setAmount('');
     setDescription('');
     setIsInstallment(false);
+    setIsRecurring(false);
     setInstallments(2);
     onClose();
   };
@@ -84,7 +85,6 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
     <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
       <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-3xl p-5 shadow-2xl space-y-4">
         
-        {/* Cabeçalho */}
         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
           <h2 className="text-sm font-extrabold text-slate-100 uppercase tracking-wider">Novo Lançamento</h2>
           <button onClick={onClose} className="p-1 rounded-xl text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition">
@@ -93,7 +93,6 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3.5">
-          {/* Alternador Saída / Entrada */}
           <div className="grid grid-cols-2 gap-2 p-1 bg-slate-950 rounded-2xl border border-slate-800">
             <button
               type="button"
@@ -115,7 +114,6 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
             </button>
           </div>
 
-          {/* Valor R$ */}
           <div className="space-y-1">
             <label className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider">Valor R$</label>
             <input
@@ -129,12 +127,11 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
             />
           </div>
 
-          {/* Descrição */}
           <div className="space-y-1">
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Descrição</label>
             <input
               type="text"
-              placeholder="Ex: Mercado, Aluguel, Parcela do Carro"
+              placeholder="Ex: Netflix, Academia, Aluguel"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-2.5 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 transition"
@@ -142,7 +139,6 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
             />
           </div>
 
-          {/* Forma de Recebimento/Pagamento + Categoria */}
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
@@ -198,7 +194,8 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
                       <option value="Saúde & Farmácia">Saúde & Farmácia</option>
                       <option value="Educação & Cursos">Educação & Cursos</option>
                     </optgroup>
-                    <optgroup label="🎉 Lazer & Dívidas">
+                    <optgroup label="🎉 Lazer, Dívidas & Assinaturas">
+                      <option value="Assinaturas & Serviços Recorrentes">Assinaturas & Serviços Recorrentes</option>
                       <option value="Lazer & Entretenimento">Lazer & Entretenimento</option>
                       <option value="Financiamentos & Empréstimos">Financiamentos & Empréstimos</option>
                       <option value="Gastos Aleatórios & Imprevistos">Gastos Aleatórios & Imprevistos</option>
@@ -216,8 +213,23 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
             </div>
           </div>
 
-          {/* Opção de Parcelamento (Apenas para Gastos) */}
-          {showInstallmentOption && (
+          {/* Marcar como Assinatura Recorrente */}
+          {type === 'expense' && (
+            <div className="p-3 bg-slate-950 rounded-2xl border border-purple-500/30 flex items-center justify-between">
+              <span className="text-xs font-bold text-purple-400 flex items-center gap-1.5">
+                <RefreshCw className="w-4 h-4" /> Assinatura Recorrente (Mensal)?
+              </span>
+              <input
+                type="checkbox"
+                checked={isRecurring}
+                onChange={(e) => setIsRecurring(e.target.checked)}
+                className="w-4 h-4 accent-purple-500 rounded cursor-pointer"
+              />
+            </div>
+          )}
+
+          {/* Parcelamento Condicional */}
+          {showInstallmentOption && !isRecurring && (
             <div className="p-3 bg-slate-950 rounded-2xl border border-cyan-500/30 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-cyan-400 flex items-center gap-1.5">
@@ -248,7 +260,6 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
             </div>
           )}
 
-          {/* Data e Status */}
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Data / Vencimento</label>

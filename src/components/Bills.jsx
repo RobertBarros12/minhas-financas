@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CreditCard, Calendar, CheckCircle, Clock, Trash2, Car, ShoppingBag } from 'lucide-react';
+import { CreditCard, Calendar, CheckCircle, Clock, Trash2, Car, ShoppingBag, RefreshCw } from 'lucide-react';
 
 export default function Bills({ transactions, onToggleStatus, onDelete }) {
   const [filter, setFilter] = useState('all');
@@ -12,7 +12,6 @@ export default function Bills({ transactions, onToggleStatus, onDelete }) {
   const now = new Date();
   const currentMonthYear = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-  // 1. Filtra estritamente as contas e compromissos com vencimento NO MÊS ATUAL
   const currentMonthBills = transactions.filter(t => {
     if (t.type !== 'expense') return false;
     
@@ -25,20 +24,20 @@ export default function Bills({ transactions, onToggleStatus, onDelete }) {
       t.paymentMethod === 'Financiamento' ||
       t.category === 'Moradia & Contas Fixas' ||
       t.category === 'Contas de Consumo' ||
-      t.category === 'Financiamentos & Empréstimos';
+      t.category === 'Assinaturas & Serviços Recorrentes' ||
+      t.isRecurring;
 
     return isBillMethod || t.status === 'pending';
   });
 
-  // 2. Filtro pelas sub-abas superiores SEPARADAS
   const filteredBills = currentMonthBills.filter(t => {
     if (filter === 'cartao') return t.paymentMethod === 'Cartão de Crédito';
     if (filter === 'financiamento') return t.paymentMethod === 'Financiamento' || t.category === 'Financiamentos & Empréstimos';
     if (filter === 'parcelados') return t.paymentMethod === 'Crediário / Carnê' || (t.installments && t.installments > 1 && t.paymentMethod !== 'Cartão de Crédito');
-    return true; // 'all' - Vencimentos do Mês
+    if (filter === 'assinaturas') return t.isRecurring || t.category === 'Assinaturas & Serviços Recorrentes';
+    return true; // 'all'
   });
 
-  // 3. Cálculos dinâmicos sincronizados com o app
   const totalBillsAmount = filteredBills.reduce((acc, t) => acc + (Number(t.amount) || 0), 0);
   const totalPendingAmount = filteredBills
     .filter(t => t.status === 'pending')
@@ -46,13 +45,14 @@ export default function Bills({ transactions, onToggleStatus, onDelete }) {
 
   return (
     <div className="space-y-4">
-      {/* Sub-abas de Navegação Separadas */}
+      {/* Sub-abas de Navegação de Contas */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
         {[
           { id: 'all', label: 'Vencimentos do Mês', icon: Calendar },
           { id: 'cartao', label: 'Cartão de Crédito', icon: CreditCard },
+          { id: 'assinaturas', label: 'Assinaturas', icon: RefreshCw },
           { id: 'financiamento', label: 'Financiamentos', icon: Car },
-          { id: 'parcelados', label: 'Parcelados / Carnê', icon: ShoppingBag },
+          { id: 'parcelados', label: 'Parcelados', icon: ShoppingBag },
         ].map(tab => {
           const Icon = tab.icon;
           const isActive = filter === tab.id;
@@ -76,7 +76,7 @@ export default function Bills({ transactions, onToggleStatus, onDelete }) {
       {/* Cards de Resumo */}
       <div className="grid grid-cols-2 gap-3 bg-slate-900/80 p-4 rounded-2xl border border-slate-800 shadow-xl">
         <div>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total em Contas do Mês</p>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total nesta Categoria</p>
           <p className="text-base font-extrabold text-slate-100 mt-0.5">{formatCurrency(totalBillsAmount)}</p>
         </div>
         <div className="text-right">
@@ -88,7 +88,7 @@ export default function Bills({ transactions, onToggleStatus, onDelete }) {
       {/* Lista de Vencimentos */}
       <div className="bg-slate-900/80 rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
         <div className="p-3 border-b border-slate-800 flex items-center justify-between">
-          <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Contas com Vencimento no Mês</h3>
+          <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Lançamentos da Categoria</h3>
           <span className="text-[10px] text-slate-400">{filteredBills.length} item(ns)</span>
         </div>
 
@@ -129,7 +129,7 @@ export default function Bills({ transactions, onToggleStatus, onDelete }) {
             ))
           ) : (
             <div className="p-8 text-center text-xs text-slate-500">
-              Nenhuma conta para esta categoria no mês.
+              Nenhum lançamento para esta sub-aba no mês.
             </div>
           )}
         </div>
