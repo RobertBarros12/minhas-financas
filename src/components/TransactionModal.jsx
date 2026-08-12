@@ -47,7 +47,8 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
 
   if (!isOpen) return null;
 
-  const showInstallmentOption = type === 'expense' && (
+  // Condição explícita para exibir a caixinha de parcelamento
+  const showInstallmentOption = type === 'expense' && !isRecurring && (
     paymentMethod === 'Cartão de Crédito' || 
     paymentMethod === 'Crediário / Carnê' || 
     paymentMethod === 'Financiamento'
@@ -171,7 +172,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
             </div>
           )}
 
-          {/* Forma de Pagamento + Lista Expandida de Categorias */}
+          {/* Forma de Pagamento e Categoria */}
           {!initialData && (
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
@@ -271,9 +272,44 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
               <input
                 type="checkbox"
                 checked={isRecurring}
-                onChange={(e) => setIsRecurring(e.target.checked)}
+                onChange={(e) => {
+                  setIsRecurring(e.target.checked);
+                  if (e.target.checked) setIsInstallment(false);
+                }}
                 className="w-4 h-4 accent-purple-500 rounded cursor-pointer"
               />
+            </div>
+          )}
+
+          {/* Bloco de Compra Parcelada (Exibido para Cartão, Crediário/Carnê e Financiamento) */}
+          {showInstallmentOption && (
+            <div className="p-3 bg-slate-950 rounded-2xl border border-cyan-500/30 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-cyan-400 flex items-center gap-1.5">
+                  <Layers className="w-4 h-4" /> Compra Parcelada?
+                </span>
+                <input
+                  type="checkbox"
+                  checked={isInstallment}
+                  onChange={(e) => setIsInstallment(e.target.checked)}
+                  className="w-4 h-4 accent-cyan-500 rounded cursor-pointer"
+                />
+              </div>
+
+              {isInstallment && (
+                <div className="flex items-center gap-2 pt-1">
+                  <span className="text-xs text-slate-400">Número de parcelas:</span>
+                  <select
+                    value={installments}
+                    onChange={(e) => setInstallments(e.target.value)}
+                    className="flex-1 bg-slate-900 border border-slate-800 rounded-xl p-2 text-xs font-bold text-cyan-400 focus:outline-none"
+                  >
+                    {[2, 3, 4, 5, 6, 10, 12, 18, 24, 36, 48, 60, 72].map(n => (
+                      <option key={n} value={n}>{n}x parcelas</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
           )}
 
