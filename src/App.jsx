@@ -55,116 +55,162 @@ export default function App() {
     setLoading(false);
   }
 
-  function fetchVaults() {
-    const local = localStorage.getItem('minhas_financas_vaults');
-    if (local) {
-      try { setVaults(JSON.parse(local)); } catch (e) {}
+  // Busca Caixinhas / Reservas do Supabase
+  async function fetchVaults() {
+    const { data, error } = await supabase.from('vaults').select('*');
+    if (!error && data) {
+      const formatted = data.map(v => ({
+        id: v.id,
+        name: v.name,
+        targetAmount: Number(v.target_amount),
+        currentAmount: Number(v.current_amount),
+      }));
+      setVaults(formatted);
     }
   }
 
-  function fetchInvestments() {
-    const local = localStorage.getItem('minhas_financas_investments');
-    if (local) {
-      try { setInvestments(JSON.parse(local)); } catch (e) {}
+  // Busca Investimentos do Supabase
+  async function fetchInvestments() {
+    const { data, error } = await supabase.from('investments').select('*').order('date', { ascending: false });
+    if (!error && data) {
+      const formatted = data.map(i => ({
+        id: i.id,
+        name: i.name,
+        category: i.category,
+        amount: Number(i.amount),
+        yieldTotal: Number(i.yield_total),
+        date: i.date,
+      }));
+      setInvestments(formatted);
     }
   }
 
-  const saveVaults = (newVaults) => {
-    setVaults(newVaults);
-    localStorage.setItem('minhas_financas_vaults', JSON.stringify(newVaults));
-  };
-
-  const saveInvestments = (newInvestments) => {
-    setInvestments(newInvestments);
-    localStorage.setItem('minhas_financas_investments', JSON.stringify(newInvestments));
-  };
-
-  const handleCreateVault = (newVault) => {
-    saveVaults([...vaults, newVault]);
-  };
-
-  const handleUpdateVaultAmount = (vaultId, delta, vaultName) => {
-    const updated = vaults.map(v => {
-      if (v.id === vaultId) {
-        const nextAmount = Math.max(0, Number(v.currentAmount || 0) + delta);
-        return { ...v, currentAmount: nextAmount };
-      }
-      return v;
-    });
-    saveVaults(updated);
-
-    const isAdding = delta > 0;
-    const tx = {
-      id: `vault-${Date.now()}`,
-      description: isAdding ? `Guardado em Reserva: ${vaultName}` : `Resgate de Reserva: ${vaultName}`,
-      amount: Math.abs(delta).toFixed(2),
-      type: isAdding ? 'expense' : 'income',
-      category: 'Reserva & Caixinhas',
-      paymentMethod: 'Conta Corrente / Pix',
-      status: 'paid',
-      date: new Date().toISOString().split('T')[0],
-      installments: 1,
-      isRecurring: false,
+  // Gestão de Caixinhas no Supabase
+  async function handleCreateVault(newVault) {
+    const payload = {
+      id: newVault.id,
+      name: newVault.name,
+      target_amount: newVault.targetAmount,
+      current_amount: newVault.currentAmount || 0,
     };
+    const { error } = await supabase.from('vaults').insert([payload]);
+    if (!error) {
+      setVaults(prev => [...prev, newVault]);
+    }
+  }
 
-    handleSaveTransaction(tx);
-  };
+  async function handleUpdateVaultAmount(vaultId, delta, vaultName) {
+    const targetVault = vaults.find(v => v.id === vaultId);
+    if (!targetVault) return;
 
-  const handleDeleteVault = (vaultId) => {
+    const nextAmount = Math.max(0, Number(targetVault.currentAmount || 0) + delta);
+
+    const { error } = await supabase
+      .from('vaults')
+      .update({ current_amount: nextAmount })
+      .eq('id', vaultId);
+
+    if (!error) {
+      setVaults(prev => prev.map(v => v.id === vaultId ? { ...v, currentAmount: nextAmount } : v));
+
+      const isAdding = delta > 0;
+      const tx = {
+        id: `vault-${Date.now()}`,
+        description: isAdding ? `Guardado em Reserva: ${vaultName}` : `Resgate de Reserva: ${vaultName}`,
+        amount: Math.abs(delta).toFixed(2),
+        type: isAdding ? 'expense' : 'income',
+        category: 'Reserva & Caixinhas',
+        paymentMethod: 'Conta Corrente / Pix',
+        status: 'paid',
+        date: new Date().toISOString().split('T')[0],
+        installments: 1,
+        isRecurring: false,
+      };
+
+      handleSaveTransaction(tx);
+    }
+  }
+
+  async function handleDeleteVault(vaultId) {
     if (!window.confirm('Tem certeza que deseja excluir esta Caixinha?')) return;
-    saveVaults(vaults.filter(v => v.id !== vaultId));
-  };
+    const { error } = await supabase.from('vaults').delete().eq('id', vaultId);
+    if (!error) {
+      setVaults(prev => prev.filter(v => v.id !== vaultId));
+    }
+  }
 
-  const handleCreateInvestment = (newInvest) => {
-    saveInvestments([...investments, newInvest]);
-
-    const investTx = {
-      id: `invest-${Date.now()}`,
-      description: `Aporte Investimento: ${newInvest.name}`,
-      amount: Number(newInvest.amount).toFixed(2),
-      type: 'expense',
-      category: 'Investimentos & Aplicações',
-      paymentMethod: 'Conta Corrente / Pix',
-      status: 'paid',
-      date: newInvest.date || new Date().toISOString().split('T')[0],
-      installments: 1,
-      isRecurring: false,
+  // Gestão de Investimentos no Supabase
+  async function handleCreateInvestment(newInvest) {
+    const payload = {
+      id: newInvest.id,
+      name: newInvest.name,
+      category: newInvest.category,
+      amount: newInvest.amount,
+      yield_total: newInvest.yieldTotal || 0,
+      date: newInvest.date,
     };
 
-    handleSaveTransaction(investTx);
-  };
+    const { error } = await supabase.from('investments').insert([payload]);
+    if (!error) {
+      setInvestments(prev => [newInvest, ...prev]);
 
-  const handleDeleteInvestment = (id) => {
+      const investTx = {
+        id: `invest-${Date.now()}`,
+        description: `Aporte Investimento: ${newInvest.name}`,
+        amount: Number(newInvest.amount).toFixed(2),
+        type: 'expense',
+        category: 'Investimentos & Aplicações',
+        paymentMethod: 'Conta Corrente / Pix',
+        status: 'paid',
+        date: newInvest.date || new Date().toISOString().split('T')[0],
+        installments: 1,
+        isRecurring: false,
+      };
+
+      handleSaveTransaction(investTx);
+    }
+  }
+
+  async function handleDeleteInvestment(id) {
     if (!window.confirm('Tem certeza que deseja excluir este investimento?')) return;
-    saveInvestments(investments.filter(i => i.id !== id));
-  };
+    const { error } = await supabase.from('investments').delete().eq('id', id);
+    if (!error) {
+      setInvestments(prev => prev.filter(i => i.id !== id));
+    }
+  }
 
-  const handleAddYield = (investId, val, investName) => {
-    const updated = investments.map(i => {
-      if (i.id === investId) {
-        return { ...i, yieldTotal: Number(i.yieldTotal || 0) + val };
-      }
-      return i;
-    });
-    saveInvestments(updated);
+  async function handleAddYield(investId, val, investName) {
+    const targetInvest = investments.find(i => i.id === investId);
+    if (!targetInvest) return;
 
-    const yieldTx = {
-      id: `yield-${Date.now()}`,
-      description: `Rendimento: ${investName}`,
-      amount: val.toFixed(2),
-      type: 'income',
-      category: 'Rendimentos & Outros',
-      paymentMethod: 'Conta Corrente / Pix',
-      status: 'paid',
-      date: new Date().toISOString().split('T')[0],
-      installments: 1,
-      isRecurring: false,
-    };
+    const newYieldTotal = Number(targetInvest.yieldTotal || 0) + val;
 
-    handleSaveTransaction(yieldTx);
-  };
+    const { error } = await supabase
+      .from('investments')
+      .update({ yield_total: newYieldTotal })
+      .eq('id', investId);
 
-  // Aceita 1 lançamento individual OU uma Lista de múltiplos lançamentos (em lote)
+    if (!error) {
+      setInvestments(prev => prev.map(i => i.id === investId ? { ...i, yieldTotal: newYieldTotal } : i));
+
+      const yieldTx = {
+        id: `yield-${Date.now()}`,
+        description: `Rendimento: ${investName}`,
+        amount: val.toFixed(2),
+        type: 'income',
+        category: 'Rendimentos & Outros',
+        paymentMethod: 'Conta Corrente / Pix',
+        status: 'paid',
+        date: new Date().toISOString().split('T')[0],
+        installments: 1,
+        isRecurring: false,
+      };
+
+      handleSaveTransaction(yieldTx);
+    }
+  }
+
+  // Transações em lote ou individuais no Supabase
   async function handleSaveTransaction(newTx) {
     const txList = Array.isArray(newTx) ? newTx : [newTx];
 
