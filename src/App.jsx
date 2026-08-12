@@ -5,17 +5,19 @@ import TransactionModal from './components/TransactionModal';
 import Bills from './components/Bills';
 import QuickShortcuts from './components/QuickShortcuts';
 import Vaults from './components/Vaults';
+import Investments from './components/Investments';
 import { 
   Plus, LayoutDashboard, CreditCard, BarChart2, Calendar as CalendarIcon, 
   CheckCircle2, Clock, Trophy, Flame, Trash2, ChevronDown, 
   ChevronUp, ShieldCheck, AlertTriangle, RefreshCw, Zap,
-  ChevronLeft, ChevronRight, PiggyBank
+  ChevronLeft, ChevronRight, PiggyBank, TrendingUp
 } from 'lucide-react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('inicio');
   const [transactions, setTransactions] = useState([]);
   const [vaults, setVaults] = useState([]);
+  const [investments, setInvestments] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [quickData, setQuickData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -26,7 +28,7 @@ export default function App() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
 
-  // Estados do Calendário da Agenda
+  // Estados do Calendário
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(new Date().getDate());
 
@@ -37,6 +39,7 @@ export default function App() {
   useEffect(() => {
     fetchTransactions();
     fetchVaults();
+    fetchInvestments();
   }, []);
 
   async function fetchTransactions() {
@@ -59,9 +62,21 @@ export default function App() {
     }
   }
 
+  function fetchInvestments() {
+    const local = localStorage.getItem('minhas_financas_investments');
+    if (local) {
+      try { setInvestments(JSON.parse(local)); } catch (e) {}
+    }
+  }
+
   const saveVaults = (newVaults) => {
     setVaults(newVaults);
     localStorage.setItem('minhas_financas_vaults', JSON.stringify(newVaults));
+  };
+
+  const saveInvestments = (newInvestments) => {
+    setInvestments(newInvestments);
+    localStorage.setItem('minhas_financas_investments', JSON.stringify(newInvestments));
   };
 
   const handleCreateVault = (newVault) => {
@@ -82,6 +97,15 @@ export default function App() {
   const handleDeleteVault = (vaultId) => {
     if (!window.confirm('Tem certeza que deseja excluir esta Caixinha?')) return;
     saveVaults(vaults.filter(v => v.id !== vaultId));
+  };
+
+  const handleCreateInvestment = (newInvest) => {
+    saveInvestments([...investments, newInvest]);
+  };
+
+  const handleDeleteInvestment = (id) => {
+    if (!window.confirm('Tem certeza que deseja excluir este investimento?')) return;
+    saveInvestments(investments.filter(i => i.id !== id));
   };
 
   async function handleSaveTransaction(newTx) {
@@ -160,7 +184,7 @@ export default function App() {
     }
   }
 
-  // Transações Filtradas
+  // Transações Filtradas por Mês/Ano
   const currentMonthTransactions = transactions.filter(
     t => t.date && t.date.startsWith(selectedMonthYear)
   );
@@ -177,7 +201,11 @@ export default function App() {
     .filter(t => t.type === 'expense' && t.status === 'pending')
     .reduce((acc, t) => acc + Number(t.amount || 0), 0);
 
-  const currentBalance = totalIncome - totalExpensePaid;
+  // Total de dinheiro guardado nas Caixinhas
+  const totalVaultsAmount = vaults.reduce((acc, v) => acc + Number(v.currentAmount || 0), 0);
+
+  // Saldo Líquido Livre (Descontando as Caixinhas/Reservas)
+  const currentBalance = totalIncome - totalExpensePaid - totalVaultsAmount;
 
   const calculateScore = () => {
     if (totalIncome === 0 && totalExpensePaid === 0) return 100;
@@ -361,7 +389,16 @@ export default function App() {
               />
             )}
 
-            {/* ABA 4: ANÁLISE */}
+            {/* ABA 4: INVESTIMENTOS */}
+            {activeTab === 'investimentos' && (
+              <Investments
+                investments={investments}
+                onCreateInvestment={handleCreateInvestment}
+                onDeleteInvestment={handleDeleteInvestment}
+              />
+            )}
+
+            {/* ABA 5: ANÁLISE */}
             {activeTab === 'analise' && (
               <div className="space-y-4">
                 <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl flex items-center justify-between">
@@ -528,7 +565,7 @@ export default function App() {
               </div>
             )}
 
-            {/* ABA 5: AGENDA */}
+            {/* ABA 6: AGENDA */}
             {activeTab === 'agenda' && (
               <div className="space-y-4">
                 <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl space-y-3">
@@ -658,13 +695,14 @@ export default function App() {
         initialData={quickData}
       />
 
-      {/* Menu Inferior com 5 Abas */}
+      {/* Menu Inferior Completo */}
       <nav className="fixed bottom-0 left-0 right-0 bg-slate-950/90 backdrop-blur-lg border-t border-slate-800/80 z-40 shadow-2xl">
-        <div className="max-w-lg mx-auto flex items-center justify-around p-2">
+        <div className="max-w-lg mx-auto flex items-center justify-around p-1.5">
           {[
             { id: 'inicio', label: 'Início', icon: LayoutDashboard },
             { id: 'contas', label: 'Contas', icon: CreditCard },
             { id: 'caixinhas', label: 'Reservas', icon: PiggyBank },
+            { id: 'investimentos', label: 'Investir', icon: TrendingUp },
             { id: 'analise', label: 'Análise', icon: BarChart2 },
             { id: 'agenda', label: 'Agenda', icon: CalendarIcon },
           ].map(tab => {
@@ -674,13 +712,13 @@ export default function App() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex flex-col items-center gap-1 p-2 rounded-2xl transition ${
+                className={`flex flex-col items-center gap-0.5 p-1.5 rounded-xl transition ${
                   isActive
                     ? 'text-cyan-400 bg-cyan-500/10 font-bold shadow-inner'
                     : 'text-slate-500 hover:text-slate-300 font-medium'
                 }`}
               >
-                <Icon className="w-5 h-5" />
+                <Icon className="w-4 h-4" />
                 <span className="text-[9px]">{tab.label}</span>
               </button>
             );
