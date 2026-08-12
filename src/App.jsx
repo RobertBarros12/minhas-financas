@@ -191,22 +191,20 @@ export default function App() {
     }
   }
 
-  // Ajustado: O rendimento de investimento atualiza apenas o patrimônio do ativo e NAO entra na conta corrente
+  // Substitui diretamente o valor total do rendimento no Supabase e no aplicativo (Sem duplicar nem mexer no caixa)
   async function handleAddYield(investId, val) {
     const targetInvest = investments.find(i => String(i.id) === String(investId));
     if (!targetInvest) return;
 
-    const newYieldTotal = Number(targetInvest.yieldTotal || 0) + val;
-
     const { error } = await supabase
       .from('investments')
-      .update({ yield_total: newYieldTotal })
+      .update({ yield_total: val })
       .eq('id', String(investId));
 
     if (error) {
       console.error('Erro ao atualizar rendimento no Supabase:', error);
     } else {
-      setInvestments(prev => prev.map(i => String(i.id) === String(investId) ? { ...i, yieldTotal: newYieldTotal } : i));
+      setInvestments(prev => prev.map(i => String(i.id) === String(investId) ? { ...i, yieldTotal: val } : i));
     }
   }
 
