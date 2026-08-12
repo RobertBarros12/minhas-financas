@@ -4,7 +4,7 @@ import Summary from './components/Summary';
 import TransactionModal from './components/TransactionModal';
 import Bills from './components/Bills';
 import QuickShortcuts from './components/QuickShortcuts';
-import { Plus, LayoutDashboard, CreditCard, BarChart2, Calendar, CheckCircle2, Clock, ShieldCheck, AlertTriangle, TrendingUp, Trophy, Flame, Trash2 } from 'lucide-react';
+import { Plus, LayoutDashboard, CreditCard, BarChart2, Calendar, CheckCircle2, Clock, Trophy, Flame, Trash2, ChevronDown, ChevronUp, Wallet, Layers, Car, Zap } from 'lucide-react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('inicio');
@@ -12,6 +12,10 @@ export default function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [quickData, setQuickData] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Estado para alternar o modo do Ranking e controlar modalidade expandida
+  const [rankingMode, setRankingMode] = useState('items'); // 'items' ou 'methods'
+  const [expandedMethod, setExpandedMethod] = useState(null);
 
   const categoryColors = {
     'Moradia & Contas Fixas': 'from-blue-600 to-indigo-600',
@@ -104,11 +108,10 @@ export default function App() {
     }
   }
 
-  // Obter Mês e Ano Atuais para os Filtros
   const now = new Date();
   const currentMonthYear = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-  // Métricas Filtradas estritamente para o Mês Atual
+  // Filtro Estrito para o Mês Atual
   const currentMonthTransactions = transactions.filter(t => t.date && t.date.startsWith(currentMonthYear));
 
   const totalIncome = currentMonthTransactions
@@ -125,26 +128,29 @@ export default function App() {
 
   const currentBalance = totalIncome - totalExpensePaid;
 
-  // Agrupamento por Categoria (Apenas Mês Atual)
-  const expensesByCategory = currentMonthTransactions
-    .filter(t => t.type === 'expense')
-    .reduce((acc, t) => {
-      const cat = t.category || 'Outros';
-      acc[cat] = (acc[cat] || 0) + Number(t.amount || 0);
-      return acc;
-    }, {});
-
-  const totalExpenseOverall = Object.values(expensesByCategory).reduce((a, b) => a + b, 0);
-
-  // Ranking Top 5 (Apenas Mês Atual)
+  // Ranking 1: Maiores Gastos Individuais do Mês
   const topExpensesRanking = [...currentMonthTransactions]
     .filter(t => t.type === 'expense')
     .sort((a, b) => Number(b.amount || 0) - Number(a.amount || 0))
     .slice(0, 5);
 
-  const currentDay = now.getDate() || 1;
-  const projectedExpense = Math.round((totalExpensePaid / currentDay) * 30);
+  // Ranking 2: Gastos Agrupados por Modalidade / Forma de Pagamento
+  const expensesByMethod = currentMonthTransactions
+    .filter(t => t.type === 'expense')
+    .reduce((acc, t) => {
+      const method = t.paymentMethod || 'Outros';
+      if (!acc[method]) {
+        acc[method] = { total: 0, items: [] };
+      }
+      acc[method].total += Number(t.amount || 0);
+      acc[method].items.push(t);
+      return acc;
+    }, {});
 
+  const rankedMethods = Object.entries(expensesByMethod)
+    .sort((a, b) => b[1].total - a[1].total);
+
+  // Regra 50/30/20
   const needsExpenses = currentMonthTransactions
     .filter(t => t.type === 'expense' && (t.category?.includes('Mercado') || t.category?.includes('Contas') || t.category?.includes('Moradia')))
     .reduce((acc, t) => acc + Number(t.amount || 0), 0);
@@ -157,6 +163,10 @@ export default function App() {
   const handleOpenQuickModal = (data) => {
     setQuickData(data);
     setIsModalOpen(true);
+  };
+
+  const toggleMethodExpand = (methodName) => {
+    setExpandedMethod(expandedMethod === methodName ? null : methodName);
   };
 
   const formatCurrency = (val) =>
@@ -259,46 +269,134 @@ export default function App() {
               />
             )}
 
-            {/* ABA 3: ANÁLISE */}
+            {/* ABA 3: ANÁLISE INTERATIVA */}
             {activeTab === 'analise' && (
               <div className="space-y-4">
+                
+                {/* RANKING INTERATIVO COM ALTERNADOR */}
                 <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl space-y-3">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                     <div className="flex items-center gap-2">
                       <Trophy className="w-5 h-5 text-amber-400" />
-                      <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider">Ranking dos Maiores Gastos do Mês</h3>
+                      <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider">Ranking Financeiro</h3>
+                    </div>
+
+                    {/* Alternador de Modo do Ranking */}
+                    <div className="flex gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                      <button
+                        onClick={() => setRankingMode('items')}
+                        className={`text-[10px] font-bold px-2 py-1 rounded-lg transition ${
+                          rankingMode === 'items'
+                            ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
+                            : 'text-slate-400'
+                        }`}
+                      >
+                        Maiores Gastos
+                      </button>
+                      <button
+                        onClick={() => setRankingMode('methods')}
+                        className={`text-[10px] font-bold px-2 py-1 rounded-lg transition ${
+                          rankingMode === 'methods'
+                            ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
+                            : 'text-slate-400'
+                        }`}
+                      >
+                        Por Modalidade
+                      </button>
                     </div>
                   </div>
 
-                  {topExpensesRanking.length > 0 ? (
-                    <div className="space-y-2 pt-1">
-                      {topExpensesRanking.map((item, idx) => (
-                        <div key={item.id} className="flex items-center justify-between p-2.5 bg-slate-950/60 rounded-xl border border-slate-800/80">
-                          <div className="flex items-center gap-2.5">
-                            <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-extrabold ${
-                              idx === 0 ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
-                              idx === 1 ? 'bg-slate-300/20 text-slate-300 border border-slate-300/30' :
-                              idx === 2 ? 'bg-orange-600/20 text-orange-400 border border-orange-600/30' :
-                              'bg-slate-800 text-slate-400'
-                            }`}>
-                              #{idx + 1}
-                            </span>
-                            <div>
-                              <p className="text-xs font-semibold text-slate-200">{item.description}</p>
-                              <p className="text-[10px] text-slate-400">{item.category}</p>
+                  {/* MODO 1: MAIORES GASTOS INDIVIDUAIS */}
+                  {rankingMode === 'items' && (
+                    topExpensesRanking.length > 0 ? (
+                      <div className="space-y-2 pt-1">
+                        {topExpensesRanking.map((item, idx) => (
+                          <div key={item.id} className="flex items-center justify-between p-2.5 bg-slate-950/60 rounded-xl border border-slate-800/80">
+                            <div className="flex items-center gap-2.5">
+                              <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-extrabold ${
+                                idx === 0 ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+                                idx === 1 ? 'bg-slate-300/20 text-slate-300 border border-slate-300/30' :
+                                idx === 2 ? 'bg-orange-600/20 text-orange-400 border border-orange-600/30' :
+                                'bg-slate-800 text-slate-400'
+                              }`}>
+                                #{idx + 1}
+                              </span>
+                              <div>
+                                <p className="text-xs font-semibold text-slate-200">{item.description}</p>
+                                <p className="text-[10px] text-slate-400">{item.category}</p>
+                              </div>
                             </div>
+                            <span className="text-xs font-bold text-rose-400">
+                              - {formatCurrency(item.amount)}
+                            </span>
                           </div>
-                          <span className="text-xs font-bold text-rose-400">
-                            - {formatCurrency(item.amount)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-slate-500 text-center py-4">Sem gastos no mês para o ranking.</p>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-500 text-center py-4">Sem gastos no mês para o ranking.</p>
+                    )
+                  )}
+
+                  {/* MODO 2: RANKING POR MODALIDADE (CLICÁVEL / SANFONA) */}
+                  {rankingMode === 'methods' && (
+                    rankedMethods.length > 0 ? (
+                      <div className="space-y-2 pt-1">
+                        {rankedMethods.map(([methodName, data], idx) => {
+                          const isExpanded = expandedMethod === methodName;
+                          return (
+                            <div key={methodName} className="bg-slate-950/60 rounded-xl border border-slate-800/80 overflow-hidden transition">
+                              
+                              {/* Linha Principal Clicável */}
+                              <button
+                                onClick={() => toggleMethodExpand(methodName)}
+                                className="w-full flex items-center justify-between p-3 hover:bg-slate-800/30 transition text-left"
+                              >
+                                <div className="flex items-center gap-2.5">
+                                  <span className="w-6 h-6 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-xs font-extrabold text-cyan-400">
+                                    #{idx + 1}
+                                  </span>
+                                  <div>
+                                    <p className="text-xs font-bold text-slate-200">{methodName}</p>
+                                    <p className="text-[10px] text-slate-400">{data.items.length} lançamento(s) • Clique para ver</p>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-extrabold text-rose-400">
+                                    - {formatCurrency(data.total)}
+                                  </span>
+                                  {isExpanded ? <ChevronUp className="w-4 h-4 text-cyan-400" /> : <ChevronDown className="w-4 h-4 text-slate-500" />}
+                                </div>
+                              </button>
+
+                              {/* Gaveta Sanfona de Detalhes dos Gastos */}
+                              {isExpanded && (
+                                <div className="p-3 bg-slate-900/60 border-t border-slate-800/80 divide-y divide-slate-800/50 space-y-2">
+                                  <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider pb-1">Itens pagos via {methodName}:</p>
+                                  {data.items.map(subItem => (
+                                    <div key={subItem.id} className="pt-2 flex items-center justify-between">
+                                      <div>
+                                        <p className="text-xs font-semibold text-slate-300">{subItem.description}</p>
+                                        <p className="text-[10px] text-slate-500">{subItem.category} • {subItem.date}</p>
+                                      </div>
+                                      <span className="text-xs font-bold text-slate-200">
+                                        {formatCurrency(subItem.amount)}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-500 text-center py-4">Sem gastos cadastrados no mês.</p>
+                    )
                   )}
                 </div>
 
+                {/* EQUILÍBRIO 50/30/20 */}
                 <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl space-y-3">
                   <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
                     <Flame className="w-5 h-5 text-cyan-400" />
