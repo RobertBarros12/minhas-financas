@@ -8,7 +8,7 @@ import Vaults from './components/Vaults';
 import { 
   Plus, LayoutDashboard, CreditCard, BarChart2, Calendar as CalendarIcon, 
   CheckCircle2, Clock, Trophy, Flame, Trash2, ChevronDown, 
-  ChevronUp, ShieldCheck, AlertTriangle, RefreshCw, Zap, TrendingUp, TrendingDown,
+  ChevronUp, ShieldCheck, AlertTriangle, RefreshCw, Zap,
   ChevronLeft, ChevronRight, PiggyBank
 } from 'lucide-react';
 
@@ -20,17 +20,17 @@ export default function App() {
   const [quickData, setQuickData] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Estado do Filtro de Mês/Ano (Navegação no Histórico)
+  // Seletor de Mês/Ano no topo
   const [selectedMonthYear, setSelectedMonthYear] = useState(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
 
-  // Estados do Calendário Interativo da Agenda
+  // Estados do Calendário da Agenda
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(new Date().getDate());
 
-  // Controle de alternância do Ranking
+  // Ranking
   const [rankingMode, setRankingMode] = useState('items');
   const [expandedMethod, setExpandedMethod] = useState(null);
 
@@ -52,8 +52,7 @@ export default function App() {
     setLoading(false);
   }
 
-  // Buscar Caixinhas do Supabase (Fallback para localStorage se a tabela não existir)
-  async function fetchVaults() {
+  function fetchVaults() {
     const local = localStorage.getItem('minhas_financas_vaults');
     if (local) {
       try { setVaults(JSON.parse(local)); } catch (e) {}
@@ -161,7 +160,7 @@ export default function App() {
     }
   }
 
-  // Transações Filtradas Pelo Mês/Ano Selecionado no Topo
+  // Transações Filtradas
   const currentMonthTransactions = transactions.filter(
     t => t.date && t.date.startsWith(selectedMonthYear)
   );
@@ -180,7 +179,6 @@ export default function App() {
 
   const currentBalance = totalIncome - totalExpensePaid;
 
-  // Score de Saúde
   const calculateScore = () => {
     if (totalIncome === 0 && totalExpensePaid === 0) return 100;
     if (totalIncome === 0) return 30;
@@ -192,7 +190,6 @@ export default function App() {
 
   const healthScore = calculateScore();
 
-  // Ralos Invisíveis e Assinaturas
   const smallExpenses = currentMonthTransactions.filter(
     t => t.type === 'expense' && Number(t.amount || 0) <= 40
   );
@@ -203,7 +200,6 @@ export default function App() {
   );
   const totalSubscriptionsMonthly = subscriptions.reduce((acc, t) => acc + Number(t.amount || 0), 0);
 
-  // Rankings
   const topExpensesRanking = [...currentMonthTransactions]
     .filter(t => t.type === 'expense')
     .sort((a, b) => Number(b.amount || 0) - Number(a.amount || 0))
@@ -224,7 +220,6 @@ export default function App() {
   const rankedMethods = Object.entries(expensesByMethod)
     .sort((a, b) => b[1].total - a[1].total);
 
-  // Lógica de Geração do Calendário
   const calYear = calendarDate.getFullYear();
   const calMonth = calendarDate.getMonth();
   const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
@@ -254,7 +249,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans pb-24 selection:bg-cyan-500 selection:text-slate-950">
       
-      {/* Header Neon com Seletor de Mês/Ano */}
+      {/* Header com Seletor de Mês/Ano */}
       <header className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-md border-b border-slate-800/80 px-4 py-3 flex items-center justify-between shadow-lg shadow-black/50">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-extrabold text-slate-950 shadow-lg shadow-cyan-500/30">
@@ -265,7 +260,6 @@ export default function App() {
           </h1>
         </div>
 
-        {/* Seletor de Mês/Ano para Navegação Temporal */}
         <div className="flex items-center gap-2">
           <input
             type="month"
@@ -291,7 +285,7 @@ export default function App() {
       <main className="max-w-lg mx-auto p-4 space-y-4">
         {loading ? (
           <div className="p-12 text-center text-xs text-slate-500 animate-pulse">
-            Sincronizando com a nuvem...
+            Sincronizando dados...
           </div>
         ) : (
           <>
@@ -308,7 +302,6 @@ export default function App() {
 
                 <QuickShortcuts onSelectShortcut={handleOpenQuickModal} />
 
-                {/* Extrato do Mês Selecionado */}
                 <div className="bg-slate-900/80 rounded-2xl border border-slate-800 overflow-hidden shadow-xl backdrop-blur-sm">
                   <div className="p-3 border-b border-slate-800/80 flex items-center justify-between">
                     <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Extrato de {selectedMonthYear}</h3>
@@ -341,7 +334,7 @@ export default function App() {
                       ))
                     ) : (
                       <div className="p-6 text-center text-xs text-slate-500">
-                        Nenhum lançamento registrado neste mês.
+                        Nenhum lançamento registrado para este mês.
                       </div>
                     )}
                   </div>
@@ -358,7 +351,17 @@ export default function App() {
               />
             )}
 
-            {/* ABA 3: ANÁLISE */}
+            {/* ABA 3: RESERVAS */}
+            {activeTab === 'caixinhas' && (
+              <Vaults
+                vaults={vaults}
+                onCreateVault={handleCreateVault}
+                onUpdateVaultAmount={handleUpdateVaultAmount}
+                onDeleteVault={handleDeleteVault}
+              />
+            )}
+
+            {/* ABA 4: ANÁLISE */}
             {activeTab === 'analise' && (
               <div className="space-y-4">
                 <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl flex items-center justify-between">
@@ -407,7 +410,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Ranking */}
                 <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl space-y-3">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                     <div className="flex items-center gap-2">
@@ -524,16 +526,6 @@ export default function App() {
                   )}
                 </div>
               </div>
-            )}
-
-            {/* ABA 4: CAIXINHAS / RESERVAS */}
-            {activeTab === 'caixinhas' && (
-              <Vaults
-                vaults={vaults}
-                onCreateVault={handleCreateVault}
-                onUpdateVaultAmount={handleUpdateVaultAmount}
-                onDeleteVault={handleDeleteVault}
-              />
             )}
 
             {/* ABA 5: AGENDA */}
@@ -666,7 +658,7 @@ export default function App() {
         initialData={quickData}
       />
 
-      {/* Navegação Inferior Atualizada com 5 Abas */}
+      {/* Menu Inferior com 5 Abas */}
       <nav className="fixed bottom-0 left-0 right-0 bg-slate-950/90 backdrop-blur-lg border-t border-slate-800/80 z-40 shadow-2xl">
         <div className="max-w-lg mx-auto flex items-center justify-around p-2">
           {[

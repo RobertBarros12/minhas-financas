@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { Target, Plus, PiggyBank, ArrowUpRight, ArrowDownLeft, Trash2 } from 'lucide-react';
 
-export default function Vaults({ vaults, onCreateVault, onUpdateVaultAmount, onDeleteVault }) {
+export default function Vaults({ vaults = [], onCreateVault, onUpdateVaultAmount, onDeleteVault }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [name, setName] = useState('');
   const [targetAmount, setTargetAmount] = useState('');
 
   const [selectedVault, setSelectedVault] = useState(null);
-  const [actionType, setActionType] = useState('add'); // 'add' ou 'withdraw'
+  const [actionType, setActionType] = useState('add');
   const [actionAmount, setActionAmount] = useState('');
 
   const formatCurrency = (val) =>
@@ -44,7 +44,6 @@ export default function Vaults({ vaults, onCreateVault, onUpdateVaultAmount, onD
 
   return (
     <div className="space-y-4">
-      {/* Topo do Módulo de Caixinhas */}
       <div className="flex items-center justify-between bg-slate-900/80 p-4 rounded-2xl border border-slate-800 shadow-xl">
         <div className="flex items-center gap-2.5">
           <div className="w-10 h-10 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
@@ -64,9 +63,8 @@ export default function Vaults({ vaults, onCreateVault, onUpdateVaultAmount, onD
         </button>
       </div>
 
-      {/* Grid de Caixinhas */}
       <div className="space-y-3">
-        {vaults.length > 0 ? (
+        {vaults && vaults.length > 0 ? (
           vaults.map(vault => {
             const current = Number(vault.currentAmount || 0);
             const target = Number(vault.targetAmount || 1);
@@ -89,7 +87,6 @@ export default function Vaults({ vaults, onCreateVault, onUpdateVaultAmount, onD
                   </button>
                 </div>
 
-                {/* Valores e Progresso */}
                 <div className="space-y-1">
                   <div className="flex justify-between items-baseline text-xs font-semibold">
                     <span className="text-sm font-black text-cyan-400">{formatCurrency(current)}</span>
@@ -104,7 +101,6 @@ export default function Vaults({ vaults, onCreateVault, onUpdateVaultAmount, onD
                   </div>
                 </div>
 
-                {/* Botões de Ação (+ Guardar / - Resgatar) */}
                 <div className="grid grid-cols-2 gap-2 pt-1">
                   <button
                     onClick={() => {
@@ -135,7 +131,6 @@ export default function Vaults({ vaults, onCreateVault, onUpdateVaultAmount, onD
         )}
       </div>
 
-      {/* Modal Criar Caixinha */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-3xl p-5 space-y-4 shadow-2xl">
@@ -184,7 +179,6 @@ export default function Vaults({ vaults, onCreateVault, onUpdateVaultAmount, onD
         </div>
       )}
 
-      {/* Modal Ação (Guardar/Resgatar) */}
       {selectedVault && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-3xl p-5 space-y-4 shadow-2xl">
