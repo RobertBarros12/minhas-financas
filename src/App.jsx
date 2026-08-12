@@ -4,7 +4,7 @@ import Summary from './components/Summary';
 import TransactionModal from './components/TransactionModal';
 import Bills from './components/Bills';
 import QuickShortcuts from './components/QuickShortcuts';
-import { Plus, LayoutDashboard, CreditCard, BarChart2, Calendar, CheckCircle2, Clock, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { Plus, LayoutDashboard, CreditCard, BarChart2, Calendar, CheckCircle2, Clock, ShieldCheck, AlertTriangle, TrendingUp, Trophy, Flame } from 'lucide-react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('inicio');
@@ -123,8 +123,28 @@ export default function App() {
 
   const totalExpenseOverall = Object.values(expensesByCategory).reduce((a, b) => a + b, 0);
 
+  // Ranking dos Maiores Gastos Individuais
+  const topExpensesRanking = [...transactions]
+    .filter(t => t.type === 'expense')
+    .sort((a, b) => Number(b.amount) - Number(a.amount))
+    .slice(0, 5);
+
   // Saúde Financeira (Porcentagem comprometida da renda)
   const commitmentRatio = totalIncome > 0 ? Math.round((totalExpensePaid / totalIncome) * 100) : 0;
+
+  // Projeção Simples para Fim do Mês (baseado em ~30 dias)
+  const currentDay = new Date().getDate() || 1;
+  const projectedExpense = Math.round((totalExpensePaid / currentDay) * 30);
+
+  // Regra 50/30/20 (Estimativa por Categorias)
+  const needsExpenses = transactions
+    .filter(t => t.type === 'expense' && (t.category?.includes('Mercado') || t.category?.includes('Contas') || t.category?.includes('Saúde')))
+    .reduce((acc, t) => acc + Number(t.amount), 0);
+
+  const wantsExpenses = totalExpensePaid - needsExpenses;
+
+  const needsRatio = totalIncome > 0 ? Math.round((needsExpenses / totalIncome) * 100) : 0;
+  const wantsRatio = totalIncome > 0 ? Math.round((wantsExpenses / totalIncome) * 100) : 0;
 
   const handleOpenQuickModal = (data) => {
     setQuickData(data);
@@ -137,7 +157,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans pb-24 selection:bg-cyan-500 selection:text-slate-950">
       
-      {/* Topo / Header Neon */}
+      {/* Header Neon */}
       <header className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-md border-b border-slate-800/80 px-4 py-3 flex items-center justify-between shadow-lg shadow-black/50">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-extrabold text-slate-950 shadow-lg shadow-cyan-500/30">
@@ -222,36 +242,96 @@ export default function App() {
               />
             )}
 
-            {/* ABA 3: ANÁLISE ULTRA-MODERNA */}
+            {/* ABA 3: ANÁLISE ULTRA-MODERNA + RANKING */}
             {activeTab === 'analise' && (
               <div className="space-y-4">
-                {/* Card de Indicador de Comprometimento de Renda */}
-                <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Comprometimento da Renda</span>
-                    {commitmentRatio <= 50 ? (
-                      <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20">
-                        <ShieldCheck className="w-3 h-3" /> Saudável ({commitmentRatio}%)
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-lg border border-amber-500/20">
-                        <AlertTriangle className="w-3 h-3" /> Atenção ({commitmentRatio}%)
-                      </span>
-                    )}
+                
+                {/* 1. RANKING DOS MAIORES GASTOS */}
+                <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <div className="flex items-center gap-2">
+                      <Trophy className="w-5 h-5 text-amber-400" />
+                      <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider">Ranking dos Maiores Gastos</h3>
+                    </div>
+                    <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-lg border border-amber-500/20">
+                      Top 5
+                    </span>
                   </div>
-                  <div className="w-full h-2.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
-                    <div
-                      className={`h-full transition-all duration-500 ${
-                        commitmentRatio <= 50
-                          ? 'bg-gradient-to-r from-emerald-500 to-teal-400'
-                          : 'bg-gradient-to-r from-amber-500 to-rose-500'
-                      }`}
-                      style={{ width: `${Math.min(commitmentRatio, 100)}%` }}
-                    />
+
+                  {topExpensesRanking.length > 0 ? (
+                    <div className="space-y-2 pt-1">
+                      {topExpensesRanking.map((item, idx) => (
+                        <div key={item.id} className="flex items-center justify-between p-2.5 bg-slate-950/60 rounded-xl border border-slate-800/80">
+                          <div className="flex items-center gap-2.5">
+                            <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-extrabold ${
+                              idx === 0 ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+                              idx === 1 ? 'bg-slate-300/20 text-slate-300 border border-slate-300/30' :
+                              idx === 2 ? 'bg-orange-600/20 text-orange-400 border border-orange-600/30' :
+                              'bg-slate-800 text-slate-400'
+                            }`}>
+                              #{idx + 1}
+                            </span>
+                            <div>
+                              <p className="text-xs font-semibold text-slate-200">{item.description}</p>
+                              <p className="text-[10px] text-slate-400">{item.category}</p>
+                            </div>
+                          </div>
+                          <span className="text-xs font-bold text-rose-400">
+                            - {formatCurrency(item.amount)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-500 text-center py-4">Sem gastos cadastrados para o ranking.</p>
+                  )}
+                </div>
+
+                {/* 2. REGRA 50/30/20 */}
+                <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl space-y-3">
+                  <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+                    <Flame className="w-5 h-5 text-cyan-400" />
+                    <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider">Equilíbrio Financeiro (50/30/20)</h3>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs font-semibold">
+                        <span className="text-slate-300">Necessidades Básicas (Ideal: 50%)</span>
+                        <span className="text-cyan-400 font-bold">{needsRatio}%</span>
+                      </div>
+                      <div className="w-full h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+                        <div className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full" style={{ width: `${Math.min(needsRatio, 100)}%` }} />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs font-semibold">
+                        <span className="text-slate-300">Desejos & Lazer (Ideal: 30%)</span>
+                        <span className="text-pink-400 font-bold">{wantsRatio}%</span>
+                      </div>
+                      <div className="w-full h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+                        <div className="h-full bg-gradient-to-r from-pink-500 to-rose-500 rounded-full" style={{ width: `${Math.min(wantsRatio, 100)}%` }} />
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                {/* Detalhamento por Categoria com Cores Personalizadas */}
+                {/* 3. CARD DE PROJEÇÃO DE GASTOS */}
+                <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl flex items-center justify-between">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5">
+                      <TrendingUp className="w-4 h-4 text-purple-400" />
+                      <span className="text-xs font-bold text-slate-300">Projeção para o Fim do Mês</span>
+                    </div>
+                    <p className="text-[10px] text-slate-400">Com base no seu ritmo atual de saídas</p>
+                  </div>
+                  <span className="text-sm font-extrabold text-purple-400 bg-purple-500/10 px-3 py-1 rounded-xl border border-purple-500/20">
+                    ~ {formatCurrency(projectedExpense)}
+                  </span>
+                </div>
+
+                {/* 4. DETALHAMENTO POR CATEGORIA COM CORES */}
                 <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl space-y-3 shadow-xl">
                   <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
                     <BarChart2 className="w-5 h-5 text-cyan-400" />
