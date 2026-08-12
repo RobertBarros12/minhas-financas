@@ -13,7 +13,6 @@ export default function App() {
   const [quickData, setQuickData] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Paleta de cores moderna por categoria
   const categoryColors = {
     'Moradia & Contas Fixas': 'from-blue-600 to-indigo-600',
     'Contas de Consumo': 'from-sky-500 to-blue-500',
@@ -38,7 +37,7 @@ export default function App() {
     const { data, error } = await supabase
       .from('transactions')
       .select('*')
-      .order('created_at', { ascending: false });
+      .order('date', { ascending: false });
 
     if (error) {
       console.error('Erro ao buscar do Supabase:', error);
@@ -66,7 +65,7 @@ export default function App() {
 
     if (error) {
       console.error('Erro ao salvar no Supabase:', error);
-      alert('Erro ao salvar no banco de dados. Tente novamente.');
+      alert('Erro ao salvar no banco de dados.');
     } else {
       setTransactions(prev => [newTx, ...prev]);
     }
@@ -92,7 +91,6 @@ export default function App() {
     }
   }
 
-  // Função para Deletar do Supabase com confirmação
   async function handleDeleteTransaction(id) {
     if (!window.confirm('Tem certeza que deseja excluir este lançamento?')) return;
 
@@ -106,46 +104,50 @@ export default function App() {
     }
   }
 
-  // Métricas Consolidadas
-  const totalIncome = transactions
+  // Obter Mês e Ano Atuais para os Filtros
+  const now = new Date();
+  const currentMonthYear = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+  // Métricas Filtradas estritamente para o Mês Atual
+  const currentMonthTransactions = transactions.filter(t => t.date && t.date.startsWith(currentMonthYear));
+
+  const totalIncome = currentMonthTransactions
     .filter(t => t.type === 'income' && t.status === 'paid')
-    .reduce((acc, t) => acc + Number(t.amount), 0);
+    .reduce((acc, t) => acc + Number(t.amount || 0), 0);
 
-  const totalExpensePaid = transactions
+  const totalExpensePaid = currentMonthTransactions
     .filter(t => t.type === 'expense' && t.status === 'paid')
-    .reduce((acc, t) => acc + Number(t.amount), 0);
+    .reduce((acc, t) => acc + Number(t.amount || 0), 0);
 
-  const totalPendingExpense = transactions
+  const totalPendingExpense = currentMonthTransactions
     .filter(t => t.type === 'expense' && t.status === 'pending')
-    .reduce((acc, t) => acc + Number(t.amount), 0);
+    .reduce((acc, t) => acc + Number(t.amount || 0), 0);
 
   const currentBalance = totalIncome - totalExpensePaid;
 
-  // Agrupamento por Categoria
-  const expensesByCategory = transactions
+  // Agrupamento por Categoria (Apenas Mês Atual)
+  const expensesByCategory = currentMonthTransactions
     .filter(t => t.type === 'expense')
     .reduce((acc, t) => {
       const cat = t.category || 'Outros';
-      acc[cat] = (acc[cat] || 0) + Number(t.amount);
+      acc[cat] = (acc[cat] || 0) + Number(t.amount || 0);
       return acc;
     }, {});
 
   const totalExpenseOverall = Object.values(expensesByCategory).reduce((a, b) => a + b, 0);
 
-  // Ranking dos Maiores Gastos Individuais
-  const topExpensesRanking = [...transactions]
+  // Ranking Top 5 (Apenas Mês Atual)
+  const topExpensesRanking = [...currentMonthTransactions]
     .filter(t => t.type === 'expense')
-    .sort((a, b) => Number(b.amount) - Number(a.amount))
+    .sort((a, b) => Number(b.amount || 0) - Number(a.amount || 0))
     .slice(0, 5);
 
-  // Projeção Simples para Fim do Mês
-  const currentDay = new Date().getDate() || 1;
+  const currentDay = now.getDate() || 1;
   const projectedExpense = Math.round((totalExpensePaid / currentDay) * 30);
 
-  // Regra 50/30/20
-  const needsExpenses = transactions
+  const needsExpenses = currentMonthTransactions
     .filter(t => t.type === 'expense' && (t.category?.includes('Mercado') || t.category?.includes('Contas') || t.category?.includes('Moradia')))
-    .reduce((acc, t) => acc + Number(t.amount), 0);
+    .reduce((acc, t) => acc + Number(t.amount || 0), 0);
 
   const wantsExpenses = totalExpensePaid - needsExpenses;
 
@@ -158,7 +160,7 @@ export default function App() {
   };
 
   const formatCurrency = (val) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(val) || 0);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans pb-24 selection:bg-cyan-500 selection:text-slate-950">
@@ -207,17 +209,17 @@ export default function App() {
 
                 <QuickShortcuts onSelectShortcut={handleOpenQuickModal} />
 
-                {/* Extrato Recente com Opção de Excluir */}
+                {/* Extrato do Mês Atual */}
                 <div className="bg-slate-900/80 rounded-2xl border border-slate-800 overflow-hidden shadow-xl backdrop-blur-sm">
                   <div className="p-3 border-b border-slate-800/80 flex items-center justify-between">
-                    <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Lançamentos Recentes</h3>
-                    <span className="text-[10px] text-slate-400">{transactions.length} item(ns)</span>
+                    <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Lançamentos do Mês</h3>
+                    <span className="text-[10px] text-slate-400">{currentMonthTransactions.length} item(ns)</span>
                   </div>
 
                   <div className="divide-y divide-slate-800/60">
-                    {transactions.length > 0 ? (
-                      transactions.slice(0, 10).map(item => (
-                        <div key={item.id} className="p-3.5 flex items-center justify-between hover:bg-slate-800/40 transition group">
+                    {currentMonthTransactions.length > 0 ? (
+                      currentMonthTransactions.map(item => (
+                        <div key={item.id} className="p-3.5 flex items-center justify-between hover:bg-slate-800/40 transition">
                           <div className="space-y-0.5">
                             <p className="text-xs font-semibold text-slate-200">{item.description}</p>
                             <p className="text-[10px] text-slate-400">{item.category} • {item.date}</p>
@@ -228,7 +230,6 @@ export default function App() {
                               {item.type === 'income' ? '+' : '-'} {formatCurrency(item.amount)}
                             </span>
 
-                            {/* Botão de Excluir Lançamento */}
                             <button
                               onClick={() => handleDeleteTransaction(item.id)}
                               className="text-slate-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-500/10 transition"
@@ -241,7 +242,7 @@ export default function App() {
                       ))
                     ) : (
                       <div className="p-6 text-center text-xs text-slate-500">
-                        Nenhum lançamento registrado. Clique em "+ Lançar"!
+                        Nenhum lançamento registrado neste mês.
                       </div>
                     )}
                   </div>
@@ -261,16 +262,12 @@ export default function App() {
             {/* ABA 3: ANÁLISE */}
             {activeTab === 'analise' && (
               <div className="space-y-4">
-                {/* Ranking Top 5 */}
                 <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl space-y-3">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                     <div className="flex items-center gap-2">
                       <Trophy className="w-5 h-5 text-amber-400" />
-                      <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider">Ranking dos Maiores Gastos</h3>
+                      <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider">Ranking dos Maiores Gastos do Mês</h3>
                     </div>
-                    <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-lg border border-amber-500/20">
-                      Top 5
-                    </span>
                   </div>
 
                   {topExpensesRanking.length > 0 ? (
@@ -298,11 +295,10 @@ export default function App() {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-xs text-slate-500 text-center py-4">Sem gastos cadastrados para o ranking.</p>
+                    <p className="text-xs text-slate-500 text-center py-4">Sem gastos no mês para o ranking.</p>
                   )}
                 </div>
 
-                {/* Regra 50/30/20 */}
                 <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl space-y-3">
                   <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
                     <Flame className="w-5 h-5 text-cyan-400" />
@@ -331,54 +327,6 @@ export default function App() {
                     </div>
                   </div>
                 </div>
-
-                {/* Projeção para Fim do Mês */}
-                <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl flex items-center justify-between">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-1.5">
-                      <TrendingUp className="w-4 h-4 text-purple-400" />
-                      <span className="text-xs font-bold text-slate-300">Projeção para o Fim do Mês</span>
-                    </div>
-                    <p className="text-[10px] text-slate-400">Com base no seu ritmo atual de saídas</p>
-                  </div>
-                  <span className="text-sm font-extrabold text-purple-400 bg-purple-500/10 px-3 py-1 rounded-xl border border-purple-500/20">
-                    ~ {formatCurrency(projectedExpense)}
-                  </span>
-                </div>
-
-                {/* Detalhamento por Categoria */}
-                <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl space-y-3 shadow-xl">
-                  <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
-                    <BarChart2 className="w-5 h-5 text-cyan-400" />
-                    <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider">Detalhamento por Categoria</h3>
-                  </div>
-
-                  {Object.keys(expensesByCategory).length > 0 ? (
-                    <div className="space-y-3 pt-1">
-                      {Object.entries(expensesByCategory).map(([cat, val]) => {
-                        const percent = totalExpenseOverall > 0 ? Math.round((val / totalExpenseOverall) * 100) : 0;
-                        const gradient = categoryColors[cat] || 'from-cyan-500 to-blue-600';
-
-                        return (
-                          <div key={cat} className="space-y-1">
-                            <div className="flex justify-between text-xs font-semibold">
-                              <span className="text-slate-200">{cat}</span>
-                              <span className="text-cyan-400 font-bold">{formatCurrency(val)} <span className="text-slate-500 text-[10px]">({percent}%)</span></span>
-                            </div>
-                            <div className="w-full h-2.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800/80">
-                              <div
-                                className={`h-full bg-gradient-to-r ${gradient} rounded-full transition-all duration-500`}
-                                style={{ width: `${percent}%` }}
-                              />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-slate-500 text-center py-4">Nenhum gasto registrado para análise.</p>
-                  )}
-                </div>
               </div>
             )}
 
@@ -389,14 +337,14 @@ export default function App() {
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                     <div className="flex items-center gap-2">
                       <Calendar className="w-5 h-5 text-cyan-400" />
-                      <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider">Cronograma de Contas</h3>
+                      <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider">Cronograma do Mês</h3>
                     </div>
-                    <span className="text-[10px] text-slate-400">{transactions.length} compromissos</span>
+                    <span className="text-[10px] text-slate-400">{currentMonthTransactions.length} compromissos</span>
                   </div>
 
                   <div className="divide-y divide-slate-800/60">
-                    {transactions.length > 0 ? (
-                      transactions.map(item => (
+                    {currentMonthTransactions.length > 0 ? (
+                      currentMonthTransactions.map(item => (
                         <div key={item.id} className="py-2.5 flex items-center justify-between">
                           <div className="flex items-center gap-2.5">
                             {item.status === 'paid' ? (
@@ -424,7 +372,7 @@ export default function App() {
                         </div>
                       ))
                     ) : (
-                      <p className="text-xs text-slate-500 text-center py-4">Nenhuma conta no cronograma.</p>
+                      <p className="text-xs text-slate-500 text-center py-4">Nenhum compromisso neste mês.</p>
                     )}
                   </div>
                 </div>
@@ -434,7 +382,6 @@ export default function App() {
         )}
       </main>
 
-      {/* Modal de Cadastro */}
       <TransactionModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -442,7 +389,6 @@ export default function App() {
         initialData={quickData}
       />
 
-      {/* Navegação Inferior */}
       <nav className="fixed bottom-0 left-0 right-0 bg-slate-950/90 backdrop-blur-lg border-t border-slate-800/80 z-40 shadow-2xl">
         <div className="max-w-lg mx-auto flex items-center justify-around p-2">
           {[

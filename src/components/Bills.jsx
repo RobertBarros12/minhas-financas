@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CreditCard, Calendar, CheckCircle, Clock, Trash2, ShieldCheck, Layers } from 'lucide-react';
+import { CreditCard, Calendar, CheckCircle, Clock, Trash2, Layers } from 'lucide-react';
 
 export default function Bills({ transactions, onToggleStatus, onDelete }) {
   const [filter, setFilter] = useState('all');
@@ -9,9 +9,16 @@ export default function Bills({ transactions, onToggleStatus, onDelete }) {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(num);
   };
 
-  // 1. Filtra apenas compromissos/contas reais de vencimento (descarta Pix, Dinheiro e Débito se já pagos)
-  const billTransactions = transactions.filter(t => {
+  const now = new Date();
+  const currentMonthYear = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+  // 1. Filtra estritamente apenas os vencimentos DO MÊS ATUAL (descarte Pix/Dinheiro quitados e parcelas de meses futuros)
+  const currentMonthBills = transactions.filter(t => {
     if (t.type !== 'expense') return false;
+    
+    // Deve pertencer ao Mês/Ano Atual
+    const isThisMonth = t.date && t.date.startsWith(currentMonthYear);
+    if (!isThisMonth) return false;
 
     const isBillMethod = 
       t.paymentMethod === 'Cartão de Crédito' || 
@@ -20,18 +27,16 @@ export default function Bills({ transactions, onToggleStatus, onDelete }) {
       t.category === 'Moradia & Contas Fixas' ||
       t.category === 'Contas de Consumo';
 
-    // Se for uma conta de vencimento/boleto/parcelado OU se estiver pendente de pagamento
-    return isBillMethod || t.status === 'pending' || (t.installments && t.installments > 1);
+    return isBillMethod || t.status === 'pending';
   });
 
   // 2. Filtro pelas sub-abas superiores
-  const filteredBills = billTransactions.filter(t => {
+  const filteredBills = currentMonthBills.filter(t => {
     if (filter === 'cartao') return t.paymentMethod === 'Cartão de Crédito';
     if (filter === 'financiamento') return t.paymentMethod === 'Financiamento' || t.paymentMethod === 'Crediário / Carnê';
-    return true; // 'all'
+    return true;
   });
 
-  // 3. Cálculos de Totais (Tratando valores para evitar o R$ NaN)
   const totalBillsAmount = filteredBills.reduce((acc, t) => acc + (Number(t.amount) || 0), 0);
   const totalPendingAmount = filteredBills
     .filter(t => t.status === 'pending')
@@ -39,10 +44,10 @@ export default function Bills({ transactions, onToggleStatus, onDelete }) {
 
   return (
     <div className="space-y-4">
-      {/* Sub-abas de Navegação de Contas */}
+      {/* Sub-abas de Navegação */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
         {[
-          { id: 'all', label: 'Vencimentos Geral', icon: Calendar },
+          { id: 'all', label: 'Vencimentos do Mês', icon: Calendar },
           { id: 'cartao', label: 'Cartão de Crédito', icon: CreditCard },
           { id: 'financiamento', label: 'Financiamentos & Parcelados', icon: Layers },
         ].map(tab => {
@@ -68,7 +73,7 @@ export default function Bills({ transactions, onToggleStatus, onDelete }) {
       {/* Cards de Resumo */}
       <div className="grid grid-cols-2 gap-3 bg-slate-900/80 p-4 rounded-2xl border border-slate-800 shadow-xl">
         <div>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total em Contas/Boletos</p>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total em Contas do Mês</p>
           <p className="text-base font-extrabold text-slate-100 mt-0.5">{formatCurrency(totalBillsAmount)}</p>
         </div>
         <div className="text-right">
@@ -80,7 +85,7 @@ export default function Bills({ transactions, onToggleStatus, onDelete }) {
       {/* Lista de Vencimentos do Mês */}
       <div className="bg-slate-900/80 rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
         <div className="p-3 border-b border-slate-800 flex items-center justify-between">
-          <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Vencimentos do Mês</h3>
+          <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Contas com Vencimento no Mês</h3>
           <span className="text-[10px] text-slate-400">{filteredBills.length} item(ns)</span>
         </div>
 
@@ -121,7 +126,7 @@ export default function Bills({ transactions, onToggleStatus, onDelete }) {
             ))
           ) : (
             <div className="p-8 text-center text-xs text-slate-500">
-              Nenhuma conta ou vencimento nesta categoria.
+              Nenhuma conta para este mês.
             </div>
           )}
         </div>
