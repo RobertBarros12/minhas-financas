@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, Layers, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Layers, RefreshCw, Zap } from 'lucide-react';
 
 export default function TransactionModal({ isOpen, onClose, onSave, initialData }) {
   const [type, setType] = useState('expense');
@@ -14,23 +14,38 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
   const [installments, setInstallments] = useState(2);
   const [isRecurring, setIsRecurring] = useState(false);
 
+  const amountInputRef = useRef(null);
+
+  // Preenche dados vindos de Atalhos Rápidos e foca direto no Valor
   useEffect(() => {
-    if (type === 'income') {
+    if (isOpen) {
+      if (initialData) {
+        if (initialData.description) setDescription(initialData.description);
+        if (initialData.type) setType(initialData.type);
+        if (initialData.category) setCategory(initialData.category);
+        if (initialData.paymentMethod) setPaymentMethod(initialData.paymentMethod);
+      } else {
+        setDescription('');
+      }
+
+      // Foco automático imediato no campo de valor para uso rápido no celular
+      setTimeout(() => {
+        if (amountInputRef.current) {
+          amountInputRef.current.focus();
+        }
+      }, 100);
+    }
+  }, [initialData, isOpen]);
+
+  useEffect(() => {
+    if (!initialData && type === 'income') {
       setPaymentMethod('Conta Corrente / Pix');
       setCategory('Salário / Prolabore');
-    } else {
+    } else if (!initialData) {
       setPaymentMethod('Cartão de Crédito');
       setCategory('Supermercado & Feira');
     }
-  }, [type]);
-
-  useEffect(() => {
-    if (initialData) {
-      if (initialData.type) setType(initialData.type);
-      if (initialData.category) setCategory(initialData.category);
-      if (initialData.paymentMethod) setPaymentMethod(initialData.paymentMethod);
-    }
-  }, [initialData]);
+  }, [type, initialData]);
 
   if (!isOpen) return null;
 
@@ -42,8 +57,9 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!amount || !description) return;
+    if (!amount) return;
 
+    const finalDescription = description.trim() || (initialData?.description || 'Lançamento Rápido');
     const parsedAmount = parseFloat(amount.replace(',', '.'));
     const totalInstallments = showInstallmentOption && isInstallment ? parseInt(installments) : 1;
     const installmentValue = parsedAmount / totalInstallments;
@@ -59,7 +75,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
 
       const newTx = {
         id: `${Date.now()}-${i}`,
-        description: `${description}${descSuffix}`,
+        description: `${finalDescription}${descSuffix}`,
         amount: installmentValue.toFixed(2),
         type,
         category,
@@ -85,184 +101,148 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
     <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
       <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-3xl p-5 shadow-2xl space-y-4">
         
+        {/* Cabeçalho */}
         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <h2 className="text-sm font-extrabold text-slate-100 uppercase tracking-wider">Novo Lançamento</h2>
+          <div className="flex items-center gap-2">
+            {initialData ? (
+              <span className="text-xs font-extrabold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-1 rounded-xl flex items-center gap-1">
+                <Zap className="w-3.5 h-3.5" /> Atalho: {initialData.description}
+              </span>
+            ) : (
+              <h2 className="text-sm font-extrabold text-slate-100 uppercase tracking-wider">Novo Lançamento</h2>
+            )}
+          </div>
           <button onClick={onClose} className="p-1 rounded-xl text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3.5">
-          <div className="grid grid-cols-2 gap-2 p-1 bg-slate-950 rounded-2xl border border-slate-800">
-            <button
-              type="button"
-              onClick={() => setType('expense')}
-              className={`py-2 rounded-xl text-xs font-bold transition ${
-                type === 'expense' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'text-slate-400'
-              }`}
-            >
-              🔴 Saída (Gasto)
-            </button>
-            <button
-              type="button"
-              onClick={() => setType('income')}
-              className={`py-2 rounded-xl text-xs font-bold transition ${
-                type === 'income' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-400'
-              }`}
-            >
-              🟢 Entrada (Ganho)
-            </button>
-          </div>
+          
+          {/* Seletor Saída x Entrada (Apenas em Lançamento Normal) */}
+          {!initialData && (
+            <div className="grid grid-cols-2 gap-2 p-1 bg-slate-950 rounded-2xl border border-slate-800">
+              <button
+                type="button"
+                onClick={() => setType('expense')}
+                className={`py-2 rounded-xl text-xs font-bold transition ${
+                  type === 'expense' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'text-slate-400'
+                }`}
+              >
+                🔴 Saída (Gasto)
+              </button>
+              <button
+                type="button"
+                onClick={() => setType('income')}
+                className={`py-2 rounded-xl text-xs font-bold transition ${
+                  type === 'income' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-400'
+                }`}
+              >
+                🟢 Entrada (Ganho)
+              </button>
+            </div>
+          )}
 
+          {/* Campo de Valor R$ (Foco Automático) */}
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider">Valor R$</label>
+            <label className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider">Digite Apenas o Valor R$</label>
             <input
+              ref={amountInputRef}
               type="number"
               step="0.01"
               placeholder="0,00"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-lg font-extrabold text-slate-100 focus:outline-none focus:border-cyan-500 transition"
+              className="w-full bg-slate-950 border border-cyan-500/50 rounded-2xl p-3 text-2xl font-black text-cyan-400 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 transition"
               required
+              autoFocus
             />
           </div>
 
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Descrição</label>
-            <input
-              type="text"
-              placeholder="Ex: Netflix, Academia, Aluguel"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-2.5 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 transition"
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
+          {/* Descrição (Opcional se for Atalho) */}
+          {!initialData && (
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                {type === 'income' ? 'Como Recebeu?' : 'Forma de Pagamento'}
-              </label>
-              <select
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-2.5 text-xs text-slate-100 focus:outline-none focus:border-cyan-500"
-              >
-                {type === 'income' ? (
-                  <>
-                    <option value="Conta Corrente / Pix">Conta Corrente / Pix</option>
-                    <option value="Dinheiro em Espécie">Dinheiro em Espécie</option>
-                    <option value="Vale Alimentação / Refeição">Vale Alimentação / Refeição</option>
-                    <option value="Conta Poupança / Investimentos">Conta Poupança / Investimentos</option>
-                  </>
-                ) : (
-                  <>
-                    <option value="Cartão de Crédito">Cartão de Crédito</option>
-                    <option value="Pix / Débito">Pix / Débito</option>
-                    <option value="Dinheiro">Dinheiro</option>
-                    <option value="Crediário / Carnê">Crediário / Carnê</option>
-                    <option value="Financiamento">Financiamento</option>
-                  </>
-                )}
-              </select>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Categoria</label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-2.5 text-xs text-slate-100 focus:outline-none focus:border-cyan-500"
-              >
-                {type === 'expense' ? (
-                  <>
-                    <optgroup label="🏠 Moradia & Contas Fixas">
-                      <option value="Moradia & Contas Fixas">Moradia (Aluguel, Condomínio)</option>
-                      <option value="Contas de Consumo">Contas (Luz, Água, Internet, Gás)</option>
-                    </optgroup>
-                    <optgroup label="🛒 Alimentação">
-                      <option value="Supermercado & Feira">Supermercado & Feira</option>
-                      <option value="Restaurantes & iFood">Restaurantes & iFood</option>
-                    </optgroup>
-                    <optgroup label="🚗 Transporte & Veículo">
-                      <option value="Uber / Transporte Público">Uber / Transporte Público</option>
-                      <option value="Combustível & Manutenção">Combustível & Manutenção Carro/Moto</option>
-                    </optgroup>
-                    <optgroup label="🛍️ Compras & Pessoal">
-                      <option value="Vestuário, Roupas & Compras">Vestuário, Roupas & Compras</option>
-                      <option value="Saúde & Farmácia">Saúde & Farmácia</option>
-                      <option value="Educação & Cursos">Educação & Cursos</option>
-                    </optgroup>
-                    <optgroup label="🎉 Lazer, Dívidas & Assinaturas">
-                      <option value="Assinaturas & Serviços Recorrentes">Assinaturas & Serviços Recorrentes</option>
-                      <option value="Lazer & Entretenimento">Lazer & Entretenimento</option>
-                      <option value="Financiamentos & Empréstimos">Financiamentos & Empréstimos</option>
-                      <option value="Gastos Aleatórios & Imprevistos">Gastos Aleatórios & Imprevistos</option>
-                    </optgroup>
-                  </>
-                ) : (
-                  <>
-                    <option value="Salário / Prolabore">Salário / Prolabore</option>
-                    <option value="Pix Recebido">Pix Recebido</option>
-                    <option value="Vendas & Serviços">Vendas & Serviços</option>
-                    <option value="Rendimentos & Outros">Rendimentos & Outros</option>
-                  </>
-                )}
-              </select>
-            </div>
-          </div>
-
-          {/* Marcar como Assinatura Recorrente */}
-          {type === 'expense' && (
-            <div className="p-3 bg-slate-950 rounded-2xl border border-purple-500/30 flex items-center justify-between">
-              <span className="text-xs font-bold text-purple-400 flex items-center gap-1.5">
-                <RefreshCw className="w-4 h-4" /> Assinatura Recorrente (Mensal)?
-              </span>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Descrição</label>
               <input
-                type="checkbox"
-                checked={isRecurring}
-                onChange={(e) => setIsRecurring(e.target.checked)}
-                className="w-4 h-4 accent-purple-500 rounded cursor-pointer"
+                type="text"
+                placeholder="Ex: Mercado, Uber, Aluguel"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-2.5 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 transition"
+                required
               />
             </div>
           )}
 
-          {/* Parcelamento Condicional */}
-          {showInstallmentOption && !isRecurring && (
-            <div className="p-3 bg-slate-950 rounded-2xl border border-cyan-500/30 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-cyan-400 flex items-center gap-1.5">
-                  <Layers className="w-4 h-4" /> Compra Parcelada?
-                </span>
-                <input
-                  type="checkbox"
-                  checked={isInstallment}
-                  onChange={(e) => setIsInstallment(e.target.checked)}
-                  className="w-4 h-4 accent-cyan-500 rounded cursor-pointer"
-                />
+          {/* Configurações Adicionais em Lançamento Normal */}
+          {!initialData && (
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Forma de Pagamento</label>
+                <select
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-2.5 text-xs text-slate-100 focus:outline-none focus:border-cyan-500"
+                >
+                  {type === 'income' ? (
+                    <>
+                      <option value="Conta Corrente / Pix">Conta Corrente / Pix</option>
+                      <option value="Dinheiro em Espécie">Dinheiro em Espécie</option>
+                      <option value="Vale Alimentação / Refeição">Vale Alimentação / Refeição</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="Cartão de Crédito">Cartão de Crédito</option>
+                      <option value="Pix / Débito">Pix / Débito</option>
+                      <option value="Dinheiro">Dinheiro</option>
+                      <option value="Crediário / Carnê">Crediário / Carnê</option>
+                      <option value="Financiamento">Financiamento</option>
+                    </>
+                  )}
+                </select>
               </div>
 
-              {isInstallment && (
-                <div className="flex items-center gap-2 pt-1">
-                  <span className="text-xs text-slate-400">Número de parcelas:</span>
-                  <select
-                    value={installments}
-                    onChange={(e) => setInstallments(e.target.value)}
-                    className="flex-1 bg-slate-900 border border-slate-800 rounded-xl p-2 text-xs font-bold text-cyan-400 focus:outline-none"
-                  >
-                    {[2, 3, 4, 5, 6, 10, 12, 18, 24, 36, 48, 60, 72].map(n => (
-                      <option key={n} value={n}>{n}x parcelas</option>
-                    ))}
-                  </select>
-                </div>
-              )}
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Categoria</label>
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-2.5 text-xs text-slate-100 focus:outline-none focus:border-cyan-500"
+                >
+                  {type === 'expense' ? (
+                    <>
+                      <optgroup label="🏠 Moradia & Contas Fixas">
+                        <option value="Moradia & Contas Fixas">Moradia (Aluguel, Condomínio)</option>
+                        <option value="Contas de Consumo">Contas (Luz, Água, Internet, Gás)</option>
+                      </optgroup>
+                      <optgroup label="🛒 Alimentação">
+                        <option value="Supermercado & Feira">Supermercado & Feira</option>
+                        <option value="Restaurantes & iFood">Restaurantes & iFood</option>
+                      </optgroup>
+                      <optgroup label="🚗 Transporte & Veículo">
+                        <option value="Uber / Transporte Público">Uber / Transporte Público</option>
+                        <option value="Combustível & Manutenção">Combustível & Manutenção Carro/Moto</option>
+                      </optgroup>
+                      <optgroup label="🛍️ Compras & Pessoal">
+                        <option value="Vestuário, Roupas & Compras">Vestuário, Roupas & Compras</option>
+                        <option value="Saúde & Farmácia">Saúde & Farmácia</option>
+                      </optgroup>
+                    </>
+                  ) : (
+                    <>
+                      <option value="Salário / Prolabore">Salário / Prolabore</option>
+                      <option value="Pix Recebido">Pix Recebido</option>
+                    </>
+                  )}
+                </select>
+              </div>
             </div>
           )}
 
+          {/* Data e Status */}
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Data / Vencimento</label>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Data</label>
               <input
                 type="date"
                 value={date}
@@ -289,9 +269,9 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
 
           <button
             type="submit"
-            className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-extrabold py-3 rounded-2xl text-xs shadow-lg shadow-cyan-500/25 active:scale-95 transition"
+            className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black py-3.5 rounded-2xl text-xs shadow-lg shadow-cyan-500/25 active:scale-95 transition tracking-wider uppercase"
           >
-            Confirmar Lançamento
+            Confirmar Lançamento Rápido
           </button>
         </form>
       </div>
