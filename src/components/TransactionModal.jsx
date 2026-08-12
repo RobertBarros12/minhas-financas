@@ -47,7 +47,6 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
 
   if (!isOpen) return null;
 
-  // Condição explícita para exibir a caixinha de parcelamento
   const showInstallmentOption = type === 'expense' && !isRecurring && (
     paymentMethod === 'Cartão de Crédito' || 
     paymentMethod === 'Crediário / Carnê' || 
@@ -60,32 +59,58 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
 
     const finalDescription = description.trim() || (initialData?.description || 'Lançamento Rápido');
     const parsedAmount = parseFloat(amount.replace(',', '.'));
-    const totalInstallments = showInstallmentOption && isInstallment ? parseInt(installments) : 1;
-    const installmentValue = parsedAmount / totalInstallments;
-
     const baseDate = new Date(date + 'T00:00:00');
 
-    for (let i = 0; i < totalInstallments; i++) {
-      const currentDate = new Date(baseDate);
-      currentDate.setMonth(baseDate.getMonth() + i);
-      
-      const formattedDate = currentDate.toISOString().split('T')[0];
-      const descSuffix = totalInstallments > 1 ? ` (${i + 1}/${totalInstallments})` : '';
+    // SE FOR ASSINATURA RECORRENTE: Projeta 12 meses no banco de dados
+    if (type === 'expense' && isRecurring) {
+      for (let i = 0; i < 12; i++) {
+        const currentDate = new Date(baseDate);
+        currentDate.setMonth(baseDate.getMonth() + i);
+        const formattedDate = currentDate.toISOString().split('T')[0];
 
-      const newTx = {
-        id: `${Date.now()}-${i}`,
-        description: `${finalDescription}${descSuffix}`,
-        amount: installmentValue.toFixed(2),
-        type,
-        category,
-        paymentMethod,
-        status: i === 0 ? status : 'pending',
-        date: formattedDate,
-        installments: totalInstallments,
-        isRecurring: isRecurring,
-      };
+        const newTx = {
+          id: `${Date.now()}-rec-${i}`,
+          description: finalDescription,
+          amount: parsedAmount.toFixed(2),
+          type,
+          category: category || 'Assinaturas & Serviços Recorrentes',
+          paymentMethod,
+          status: i === 0 ? status : 'pending',
+          date: formattedDate,
+          installments: 1,
+          isRecurring: true,
+        };
 
-      onSave(newTx);
+        onSave(newTx);
+      }
+    } 
+    // SE FOR COMPRA PARCELADA: Projeta o número selecionado de parcelas
+    else {
+      const totalInstallments = showInstallmentOption && isInstallment ? parseInt(installments) : 1;
+      const installmentValue = parsedAmount / totalInstallments;
+
+      for (let i = 0; i < totalInstallments; i++) {
+        const currentDate = new Date(baseDate);
+        currentDate.setMonth(baseDate.getMonth() + i);
+        
+        const formattedDate = currentDate.toISOString().split('T')[0];
+        const descSuffix = totalInstallments > 1 ? ` (${i + 1}/${totalInstallments})` : '';
+
+        const newTx = {
+          id: `${Date.now()}-${i}`,
+          description: `${finalDescription}${descSuffix}`,
+          amount: installmentValue.toFixed(2),
+          type,
+          category,
+          paymentMethod,
+          status: i === 0 ? status : 'pending',
+          date: formattedDate,
+          installments: totalInstallments,
+          isRecurring: false,
+        };
+
+        onSave(newTx);
+      }
     }
 
     setAmount('');
@@ -281,7 +306,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
             </div>
           )}
 
-          {/* Bloco de Compra Parcelada (Exibido para Cartão, Crediário/Carnê e Financiamento) */}
+          {/* Bloco de Compra Parcelada */}
           {showInstallmentOption && (
             <div className="p-3 bg-slate-950 rounded-2xl border border-cyan-500/30 space-y-2">
               <div className="flex items-center justify-between">
