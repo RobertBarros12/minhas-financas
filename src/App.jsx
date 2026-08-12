@@ -4,7 +4,7 @@ import Summary from './components/Summary';
 import TransactionModal from './components/TransactionModal';
 import Bills from './components/Bills';
 import QuickShortcuts from './components/QuickShortcuts';
-import { Plus, LayoutDashboard, CreditCard, BarChart2, Calendar } from 'lucide-react';
+import { Plus, LayoutDashboard, CreditCard, BarChart2, Calendar, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('inicio');
@@ -105,6 +105,17 @@ export default function App() {
 
   const currentBalance = totalIncome - totalExpensePaid;
 
+  // Agrupamento de Gastos por Categoria (Para a Aba Análise)
+  const expensesByCategory = transactions
+    .filter(t => t.type === 'expense')
+    .reduce((acc, t) => {
+      const cat = t.category || 'Outros';
+      acc[cat] = (acc[cat] || 0) + Number(t.amount);
+      return acc;
+    }, {});
+
+  const totalExpenseOverall = Object.values(expensesByCategory).reduce((a, b) => a + b, 0);
+
   const handleOpenQuickModal = (data) => {
     setQuickData(data);
     setIsModalOpen(true);
@@ -158,7 +169,6 @@ export default function App() {
                   previousBalance={0}
                 />
 
-                {/* Atalhos Rápidos Personalizados */}
                 <QuickShortcuts onSelectShortcut={handleOpenQuickModal} />
 
                 {/* Extrato Recente */}
@@ -202,22 +212,79 @@ export default function App() {
               />
             )}
 
-            {/* ABA 3: ANÁLISE */}
+            {/* ABA 3: ANÁLISE DINÂMICA DE DESPESAS */}
             {activeTab === 'analise' && (
-              <div className="p-6 bg-slate-900/80 border border-slate-800 rounded-3xl text-center space-y-3">
-                <BarChart2 className="w-10 h-10 text-cyan-400 mx-auto" />
-                <h3 className="text-sm font-bold text-slate-100">Análise de Despesas</h3>
-                <p className="text-xs text-slate-400">Total acumulado de entradas: <strong className="text-emerald-400">{formatCurrency(totalIncome)}</strong></p>
-                <p className="text-xs text-slate-400">Total acumulado de saídas: <strong className="text-rose-400">{formatCurrency(totalExpensePaid)}</strong></p>
+              <div className="space-y-4">
+                <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-2xl space-y-3">
+                  <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+                    <BarChart2 className="w-5 h-5 text-cyan-400" />
+                    <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider">Detalhamento por Categoria</h3>
+                  </div>
+
+                  {Object.keys(expensesByCategory).length > 0 ? (
+                    <div className="space-y-3 pt-1">
+                      {Object.entries(expensesByCategory).map(([cat, val]) => {
+                        const percent = totalExpenseOverall > 0 ? Math.round((val / totalExpenseOverall) * 100) : 0;
+                        return (
+                          <div key={cat} className="space-y-1">
+                            <div className="flex justify-between text-xs font-semibold">
+                              <span className="text-slate-300">{cat}</span>
+                              <span className="text-cyan-400">{formatCurrency(val)} ({percent}%)</span>
+                            </div>
+                            <div className="w-full h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+                              <div
+                                className="h-full bg-gradient-to-r from-cyan-500 to-blue-600 rounded-full"
+                                style={{ width: `${percent}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-500 text-center py-4">Sem saídas cadastradas para análise visual.</p>
+                  )}
+                </div>
               </div>
             )}
 
-            {/* ABA 4: AGENDA */}
+            {/* ABA 4: AGENDA DINÂMICA DE VENCIMENTOS */}
             {activeTab === 'agenda' && (
-              <div className="p-6 bg-slate-900/80 border border-slate-800 rounded-3xl text-center space-y-3">
-                <Calendar className="w-10 h-10 text-cyan-400 mx-auto" />
-                <h3 className="text-sm font-bold text-slate-100">Agenda Financeira</h3>
-                <p className="text-xs text-slate-400">Suas contas fixas e pendências organizadas por data de vencimento.</p>
+              <div className="space-y-4">
+                <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-2xl space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-5 h-5 text-cyan-400" />
+                      <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider">Cronograma de Contas</h3>
+                    </div>
+                    <span className="text-[10px] text-slate-400">{transactions.length} compromissos</span>
+                  </div>
+
+                  <div className="divide-y divide-slate-800/60">
+                    {transactions.length > 0 ? (
+                      transactions.map(item => (
+                        <div key={item.id} className="py-2.5 flex items-center justify-between">
+                          <div className="flex items-center gap-2.5">
+                            {item.status === 'paid' ? (
+                              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                            ) : (
+                              <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+                            )}
+                            <div>
+                              <p className="text-xs font-semibold text-slate-200">{item.description}</p>
+                              <p className="text-[10px] text-slate-400">Data: {item.date}</p>
+                            </div>
+                          </div>
+                          <span className={`text-xs font-bold ${item.status === 'paid' ? 'text-slate-400 line-through' : 'text-amber-400'}`}>
+                            {formatCurrency(item.amount)}
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-xs text-slate-500 text-center py-4">Nenhuma conta agendada.</p>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </>
