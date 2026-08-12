@@ -164,27 +164,30 @@ export default function App() {
     handleSaveTransaction(yieldTx);
   };
 
+  // Aceita 1 lançamento individual OU uma Lista de múltiplos lançamentos (em lote)
   async function handleSaveTransaction(newTx) {
-    const payload = {
-      id: newTx.id,
-      description: newTx.description,
-      amount: newTx.amount,
-      type: newTx.type,
-      category: newTx.category,
-      payment_method: newTx.paymentMethod,
-      status: newTx.status,
-      date: newTx.date,
-      installments: newTx.installments || 1,
-      is_recurring: newTx.isRecurring || false,
-    };
+    const txList = Array.isArray(newTx) ? newTx : [newTx];
 
-    const { error } = await supabase.from('transactions').insert([payload]);
+    const payload = txList.map(item => ({
+      id: item.id,
+      description: item.description,
+      amount: item.amount,
+      type: item.type,
+      category: item.category,
+      payment_method: item.paymentMethod,
+      status: item.status,
+      date: item.date,
+      installments: item.installments || 1,
+      is_recurring: item.isRecurring || false,
+    }));
+
+    const { error } = await supabase.from('transactions').insert(payload);
 
     if (error) {
       console.error('Erro ao salvar no Supabase:', error);
       alert('Erro ao salvar no banco de dados.');
     } else {
-      setTransactions(prev => [newTx, ...prev]);
+      setTransactions(prev => [...txList, ...prev]);
     }
   }
 
@@ -422,7 +425,7 @@ export default function App() {
               </div>
             )}
 
-            {/* ABA 2: CONTAS (CONECTADA AO SELETOR DE MÊS) */}
+            {/* ABA 2: CONTAS */}
             {activeTab === 'contas' && (
               <Bills
                 transactions={transactions}

@@ -5,7 +5,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
   const [type, setType] = useState('expense');
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('Supermercado & Feira');
+  const [category, setCategory] = useState('Assinaturas & Serviços Recorrentes');
   const [paymentMethod, setPaymentMethod] = useState('Cartão de Crédito');
   const [status, setStatus] = useState('paid');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -41,7 +41,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
       setCategory('Salário / Prolabore');
     } else if (!initialData) {
       setPaymentMethod('Cartão de Crédito');
-      setCategory('Supermercado & Feira');
+      setCategory('Assinaturas & Serviços Recorrentes');
     }
   }, [type, initialData]);
 
@@ -61,30 +61,30 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
     const parsedAmount = parseFloat(amount.replace(',', '.'));
     const baseDate = new Date(date + 'T00:00:00');
 
-    // SE FOR ASSINATURA RECORRENTE: Projeta 12 meses no banco de dados
+    const transactionsToSave = [];
+
+    // SE FOR ASSINATURA RECORRENTE: Monta 12 meses no banco
     if (type === 'expense' && isRecurring) {
       for (let i = 0; i < 12; i++) {
         const currentDate = new Date(baseDate);
         currentDate.setMonth(baseDate.getMonth() + i);
         const formattedDate = currentDate.toISOString().split('T')[0];
 
-        const newTx = {
+        transactionsToSave.push({
           id: `${Date.now()}-rec-${i}`,
           description: finalDescription,
           amount: parsedAmount.toFixed(2),
           type,
-          category: category || 'Assinaturas & Serviços Recorrentes',
+          category: 'Assinaturas & Serviços Recorrentes',
           paymentMethod,
           status: i === 0 ? status : 'pending',
           date: formattedDate,
           installments: 1,
           isRecurring: true,
-        };
-
-        onSave(newTx);
+        });
       }
     } 
-    // SE FOR COMPRA PARCELADA: Projeta o número selecionado de parcelas
+    // SE FOR COMPRA PARCELADA OU NORMAL
     else {
       const totalInstallments = showInstallmentOption && isInstallment ? parseInt(installments) : 1;
       const installmentValue = parsedAmount / totalInstallments;
@@ -96,7 +96,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
         const formattedDate = currentDate.toISOString().split('T')[0];
         const descSuffix = totalInstallments > 1 ? ` (${i + 1}/${totalInstallments})` : '';
 
-        const newTx = {
+        transactionsToSave.push({
           id: `${Date.now()}-${i}`,
           description: `${finalDescription}${descSuffix}`,
           amount: installmentValue.toFixed(2),
@@ -107,11 +107,11 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
           date: formattedDate,
           installments: totalInstallments,
           isRecurring: false,
-        };
-
-        onSave(newTx);
+        });
       }
     }
+
+    onSave(transactionsToSave);
 
     setAmount('');
     setDescription('');
@@ -188,7 +188,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Descrição</label>
               <input
                 type="text"
-                placeholder="Ex: Netflix, Mercado, Uber, Aluguel"
+                placeholder="Ex: Spotify, Netflix, Mercado, Uber"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-2.5 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 transition"
@@ -234,17 +234,15 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
                 >
                   {type === 'expense' ? (
                     <>
+                      <optgroup label="📺 Streaming & Assinaturas">
+                        <option value="Assinaturas & Serviços Recorrentes">Streamings (Spotify, Netflix, Prime)</option>
+                        <option value="Serviços Digitais & Software">Serviços Digitais & IA (ChatGPT, Cloud)</option>
+                      </optgroup>
+
                       <optgroup label="🏠 Moradia & Contas Fixas">
                         <option value="Moradia & Contas Fixas">Moradia (Aluguel, Condomínio)</option>
                         <option value="Contas de Consumo">Contas (Luz, Água, Internet, Gás)</option>
                         <option value="Impostos & Taxas">Impostos (IPTU, Taxas)</option>
-                      </optgroup>
-
-                      <optgroup label="📺 Streaming, Assinaturas & Lazer">
-                        <option value="Assinaturas & Serviços Recorrentes">Streamings (Netflix, Spotify, Prime)</option>
-                        <option value="Serviços Digitais & Software">Serviços Digitais & IA (ChatGPT, Cloud)</option>
-                        <option value="Lazer & Entretenimento">Lazer, Cinema & Viagens</option>
-                        <option value="Academia & Esportes">Academia & Esportes</option>
                       </optgroup>
 
                       <optgroup label="🛒 Alimentação">
