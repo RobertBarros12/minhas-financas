@@ -55,12 +55,14 @@ export default function App() {
     setLoading(false);
   }
 
-  // Busca Caixinhas / Reservas do Supabase
+  // Busca Caixinhas / Reservas da Nuvem
   async function fetchVaults() {
     const { data, error } = await supabase.from('vaults').select('*');
-    if (!error && data) {
+    if (error) {
+      console.error('Erro ao buscar caixinhas:', error);
+    } else if (data) {
       const formatted = data.map(v => ({
-        id: v.id,
+        id: String(v.id),
         name: v.name,
         targetAmount: Number(v.target_amount),
         currentAmount: Number(v.current_amount),
@@ -69,12 +71,14 @@ export default function App() {
     }
   }
 
-  // Busca Investimentos do Supabase
+  // Busca Investimentos da Nuvem
   async function fetchInvestments() {
     const { data, error } = await supabase.from('investments').select('*').order('date', { ascending: false });
-    if (!error && data) {
+    if (error) {
+      console.error('Erro ao buscar investimentos:', error);
+    } else if (data) {
       const formatted = data.map(i => ({
-        id: i.id,
+        id: String(i.id),
         name: i.name,
         category: i.category,
         amount: Number(i.amount),
@@ -88,19 +92,22 @@ export default function App() {
   // Gestão de Caixinhas no Supabase
   async function handleCreateVault(newVault) {
     const payload = {
-      id: newVault.id,
+      id: String(newVault.id),
       name: newVault.name,
       target_amount: newVault.targetAmount,
       current_amount: newVault.currentAmount || 0,
     };
     const { error } = await supabase.from('vaults').insert([payload]);
-    if (!error) {
+    if (error) {
+      console.error('Erro ao salvar caixinha no Supabase:', error);
+      alert('Erro ao salvar Caixinha na nuvem.');
+    } else {
       setVaults(prev => [...prev, newVault]);
     }
   }
 
   async function handleUpdateVaultAmount(vaultId, delta, vaultName) {
-    const targetVault = vaults.find(v => v.id === vaultId);
+    const targetVault = vaults.find(v => String(v.id) === String(vaultId));
     if (!targetVault) return;
 
     const nextAmount = Math.max(0, Number(targetVault.currentAmount || 0) + delta);
@@ -108,10 +115,12 @@ export default function App() {
     const { error } = await supabase
       .from('vaults')
       .update({ current_amount: nextAmount })
-      .eq('id', vaultId);
+      .eq('id', String(vaultId));
 
-    if (!error) {
-      setVaults(prev => prev.map(v => v.id === vaultId ? { ...v, currentAmount: nextAmount } : v));
+    if (error) {
+      console.error('Erro ao atualizar saldo da caixinha:', error);
+    } else {
+      setVaults(prev => prev.map(v => String(v.id) === String(vaultId) ? { ...v, currentAmount: nextAmount } : v));
 
       const isAdding = delta > 0;
       const tx = {
@@ -133,16 +142,16 @@ export default function App() {
 
   async function handleDeleteVault(vaultId) {
     if (!window.confirm('Tem certeza que deseja excluir esta Caixinha?')) return;
-    const { error } = await supabase.from('vaults').delete().eq('id', vaultId);
+    const { error } = await supabase.from('vaults').delete().eq('id', String(vaultId));
     if (!error) {
-      setVaults(prev => prev.filter(v => v.id !== vaultId));
+      setVaults(prev => prev.filter(v => String(v.id) !== String(vaultId)));
     }
   }
 
   // Gestão de Investimentos no Supabase
   async function handleCreateInvestment(newInvest) {
     const payload = {
-      id: newInvest.id,
+      id: String(newInvest.id),
       name: newInvest.name,
       category: newInvest.category,
       amount: newInvest.amount,
@@ -151,7 +160,10 @@ export default function App() {
     };
 
     const { error } = await supabase.from('investments').insert([payload]);
-    if (!error) {
+    if (error) {
+      console.error('Erro ao salvar investimento no Supabase:', error);
+      alert('Erro ao salvar Investimento na nuvem.');
+    } else {
       setInvestments(prev => [newInvest, ...prev]);
 
       const investTx = {
@@ -173,14 +185,15 @@ export default function App() {
 
   async function handleDeleteInvestment(id) {
     if (!window.confirm('Tem certeza que deseja excluir este investimento?')) return;
-    const { error } = await supabase.from('investments').delete().eq('id', id);
+    const { error } = await supabase.from('investments').delete().eq('id', String(id));
     if (!error) {
-      setInvestments(prev => prev.filter(i => i.id !== id));
+      setInvestments(prev => prev.filter(i => String(i.id) !== String(id)));
     }
   }
 
-  async function handleAddYield(investId, val, investName) {
-    const targetInvest = investments.find(i => i.id === investId);
+  // Ajustado: O rendimento de investimento atualiza apenas o patrimônio do ativo e NAO entra na conta corrente
+  async function handleAddYield(investId, val) {
+    const targetInvest = investments.find(i => String(i.id) === String(investId));
     if (!targetInvest) return;
 
     const newYieldTotal = Number(targetInvest.yieldTotal || 0) + val;
@@ -188,34 +201,21 @@ export default function App() {
     const { error } = await supabase
       .from('investments')
       .update({ yield_total: newYieldTotal })
-      .eq('id', investId);
+      .eq('id', String(investId));
 
-    if (!error) {
-      setInvestments(prev => prev.map(i => i.id === investId ? { ...i, yieldTotal: newYieldTotal } : i));
-
-      const yieldTx = {
-        id: `yield-${Date.now()}`,
-        description: `Rendimento: ${investName}`,
-        amount: val.toFixed(2),
-        type: 'income',
-        category: 'Rendimentos & Outros',
-        paymentMethod: 'Conta Corrente / Pix',
-        status: 'paid',
-        date: new Date().toISOString().split('T')[0],
-        installments: 1,
-        isRecurring: false,
-      };
-
-      handleSaveTransaction(yieldTx);
+    if (error) {
+      console.error('Erro ao atualizar rendimento no Supabase:', error);
+    } else {
+      setInvestments(prev => prev.map(i => String(i.id) === String(investId) ? { ...i, yieldTotal: newYieldTotal } : i));
     }
   }
 
-  // Transações em lote ou individuais no Supabase
+  // Transações no Supabase
   async function handleSaveTransaction(newTx) {
     const txList = Array.isArray(newTx) ? newTx : [newTx];
 
     const payload = txList.map(item => ({
-      id: item.id,
+      id: String(item.id),
       description: item.description,
       amount: item.amount,
       type: item.type,
@@ -238,7 +238,7 @@ export default function App() {
   }
 
   async function handleToggleStatus(id) {
-    const tx = transactions.find(t => t.id === id);
+    const tx = transactions.find(t => String(t.id) === String(id));
     if (!tx) return;
 
     const newStatus = tx.status === 'paid' ? 'pending' : 'paid';
@@ -246,17 +246,17 @@ export default function App() {
     const { error } = await supabase
       .from('transactions')
       .update({ status: newStatus })
-      .eq('id', id);
+      .eq('id', String(id));
 
     if (!error) {
       setTransactions(prev =>
-        prev.map(t => (t.id === id ? { ...t, status: newStatus } : t))
+        prev.map(t => (String(t.id) === String(id) ? { ...t, status: newStatus } : t))
       );
     }
   }
 
   async function handleDeleteTransaction(id) {
-    const targetTx = transactions.find(t => t.id === id);
+    const targetTx = transactions.find(t => String(t.id) === String(id));
     if (!targetTx) return;
 
     const baseDescription = targetTx.description.replace(/\s\(\d+\/\d+\)$/, '');
@@ -281,10 +281,10 @@ export default function App() {
         setTransactions(prev => prev.filter(t => !t.description.startsWith(baseDescription)));
       }
     } else {
-      const { error } = await supabase.from('transactions').delete().eq('id', id);
+      const { error } = await supabase.from('transactions').delete().eq('id', String(id));
 
       if (!error) {
-        setTransactions(prev => prev.filter(t => t.id !== id));
+        setTransactions(prev => prev.filter(t => String(t.id) !== String(id)));
       }
     }
   }
