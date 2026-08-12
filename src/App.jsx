@@ -8,7 +8,7 @@ import {
   Plus, LayoutDashboard, CreditCard, BarChart2, Calendar as CalendarIcon, 
   CheckCircle2, Clock, Trophy, Flame, Trash2, ChevronDown, 
   ChevronUp, ShieldCheck, AlertTriangle, RefreshCw, Zap, TrendingUp, TrendingDown,
-  ChevronLeft, ChevronRight, AlertCircle
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 
 export default function App() {
@@ -18,7 +18,7 @@ export default function App() {
   const [quickData, setQuickData] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Estados da Agenda Interativa
+  // Estados do Calendário Interativo da Agenda
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(new Date().getDate());
 
@@ -219,7 +219,6 @@ export default function App() {
   ];
 
   const calMonthYearStr = `${calYear}-${String(calMonth + 1).padStart(2, '0')}`;
-  const calMonthTransactions = transactions.filter(t => t.date && t.date.startsWith(calMonthYearStr));
 
   // Itens do Dia Selecionado na Agenda
   const selectedDayStr = `${calMonthYearStr}-${String(selectedDay).padStart(2, '0')}`;
@@ -502,14 +501,14 @@ export default function App() {
               </div>
             )}
 
-            {/* ABA 4: AGENDA INTERATIVA EM CALENDÁRIO */}
+            {/* ABA 4: AGENDA INTERATIVA EM CALENDÁRIO GRID */}
             {activeTab === 'agenda' && (
               <div className="space-y-4">
                 
-                {/* 1. CALENDÁRIO MENSAL GRID */}
+                {/* CALENDÁRIO MENSAL GRID */}
                 <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl space-y-3">
                   
-                  {/* Cabeçalho do Calendário com Navegação */}
+                  {/* Cabeçalho de Navegação de Mês */}
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                     <div className="flex items-center gap-2">
                       <CalendarIcon className="w-5 h-5 text-cyan-400" />
@@ -545,14 +544,12 @@ export default function App() {
                     <span>Dom</span><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span>
                   </div>
 
-                  {/* Grid de Dias do Mês */}
+                  {/* Grid de Dias */}
                   <div className="grid grid-cols-7 gap-1 text-center">
-                    {/* Espaços vazios do início do mês */}
                     {Array.from({ length: firstDayIndex }).map((_, i) => (
                       <div key={`empty-${i}`} className="h-9 rounded-xl bg-slate-950/20" />
                     ))}
 
-                    {/* Dias do Mês */}
                     {Array.from({ length: daysInMonth }).map((_, i) => {
                       const dayNum = i + 1;
                       const dayStr = `${calMonthYearStr}-${String(dayNum).padStart(2, '0')}`;
@@ -578,10 +575,11 @@ export default function App() {
                         >
                           <span>{dayNum}</span>
 
-                          {/* Indicadores Visuais de Vencimento */}
+                          {/* Ponto Vermelho Neon para Vencimentos Pendentes */}
                           {hasPending && (
                             <span className="absolute bottom-1 w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse shadow-sm shadow-rose-500/80" />
                           )}
+                          {/* Ponto Verde para Lançamentos Quitados */}
                           {hasPaidOnly && (
                             <span className="absolute bottom-1 w-1.5 h-1.5 rounded-full bg-emerald-400" />
                           )}
@@ -591,7 +589,7 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* 2. COMPROMISSOS DO DIA SELECIONADO */}
+                {/* COMPROMISSOS DO DIA SELECIONADO */}
                 <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl space-y-3 shadow-xl">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                     <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider">
