@@ -10,9 +10,19 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
   const [status, setStatus] = useState('paid');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   
-  // Estado de Parcelamento
   const [isInstallment, setIsInstallment] = useState(false);
   const [installments, setInstallments] = useState(2);
+
+  // Atualiza os valores padrão ao alternar entre Saída (Gasto) e Entrada (Ganho)
+  useEffect(() => {
+    if (type === 'income') {
+      setPaymentMethod('Conta Corrente / Pix');
+      setCategory('Salário / Prolabore');
+    } else {
+      setPaymentMethod('Cartão de Crédito');
+      setCategory('Supermercado & Feira');
+    }
+  }, [type]);
 
   useEffect(() => {
     if (initialData) {
@@ -24,7 +34,6 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
 
   if (!isOpen) return null;
 
-  // Mostra o parcelamento apenas para métodos parceláveis em saídas
   const showInstallmentOption = type === 'expense' && (
     paymentMethod === 'Cartão de Crédito' || 
     paymentMethod === 'Crediário / Carnê' || 
@@ -41,7 +50,6 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
 
     const baseDate = new Date(date + 'T00:00:00');
 
-    // Gera o lançamento atual e projeta as parcelas futuras nos meses seguintes
     for (let i = 0; i < totalInstallments; i++) {
       const currentDate = new Date(baseDate);
       currentDate.setMonth(baseDate.getMonth() + i);
@@ -56,7 +64,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
         type,
         category,
         paymentMethod,
-        status: i === 0 ? status : 'pending', // Apenas a 1ª parcela assume o status escolhido; as demais entram como pendentes
+        status: i === 0 ? status : 'pending',
         date: formattedDate,
         installments: totalInstallments,
         isRecurring: false,
@@ -65,7 +73,6 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
       onSave(newTx);
     }
 
-    // Reseta o formulário
     setAmount('');
     setDescription('');
     setIsInstallment(false);
@@ -108,7 +115,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
             </button>
           </div>
 
-          {/* Campo de Valor */}
+          {/* Valor R$ */}
           <div className="space-y-1">
             <label className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider">Valor R$</label>
             <input
@@ -135,20 +142,33 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
             />
           </div>
 
-          {/* Forma de Pagamento e Categoria Agrupada */}
+          {/* Forma de Recebimento/Pagamento + Categoria */}
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Forma de Pagamento</label>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                {type === 'income' ? 'Como Recebeu?' : 'Forma de Pagamento'}
+              </label>
               <select
                 value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-2.5 text-xs text-slate-100 focus:outline-none focus:border-cyan-500"
               >
-                <option value="Cartão de Crédito">Cartão de Crédito</option>
-                <option value="Pix / Débito">Pix / Débito</option>
-                <option value="Dinheiro">Dinheiro</option>
-                <option value="Crediário / Carnê">Crediário / Carnê</option>
-                <option value="Financiamento">Financiamento</option>
+                {type === 'income' ? (
+                  <>
+                    <option value="Conta Corrente / Pix">Conta Corrente / Pix</option>
+                    <option value="Dinheiro em Espécie">Dinheiro em Espécie</option>
+                    <option value="Vale Alimentação / Refeição">Vale Alimentação / Refeição</option>
+                    <option value="Conta Poupança / Investimentos">Conta Poupança / Investimentos</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="Cartão de Crédito">Cartão de Crédito</option>
+                    <option value="Pix / Débito">Pix / Débito</option>
+                    <option value="Dinheiro">Dinheiro</option>
+                    <option value="Crediário / Carnê">Crediário / Carnê</option>
+                    <option value="Financiamento">Financiamento</option>
+                  </>
+                )}
               </select>
             </div>
 
@@ -196,7 +216,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
             </div>
           </div>
 
-          {/* Opção de Compra Parcelada (Aparece condicionalmente) */}
+          {/* Opção de Parcelamento (Apenas para Gastos) */}
           {showInstallmentOption && (
             <div className="p-3 bg-slate-950 rounded-2xl border border-cyan-500/30 space-y-2">
               <div className="flex items-center justify-between">
@@ -256,7 +276,6 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
             </div>
           </div>
 
-          {/* Botão de Envio */}
           <button
             type="submit"
             className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-extrabold py-3 rounded-2xl text-xs shadow-lg shadow-cyan-500/25 active:scale-95 transition"
