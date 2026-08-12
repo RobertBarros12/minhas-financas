@@ -4,7 +4,7 @@ import Summary from './components/Summary';
 import TransactionModal from './components/TransactionModal';
 import Bills from './components/Bills';
 import QuickShortcuts from './components/QuickShortcuts';
-import { Plus, LayoutDashboard, CreditCard, BarChart2, Calendar, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
+import { Plus, LayoutDashboard, CreditCard, BarChart2, Calendar, CheckCircle2, Clock, ShieldCheck, AlertTriangle } from 'lucide-react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('inicio');
@@ -13,7 +13,17 @@ export default function App() {
   const [quickData, setQuickData] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // 1. Carregar dados do Supabase
+  // Paleta de cores moderna por categoria
+  const categoryColors = {
+    'Alimentação / Mercado': 'from-amber-500 to-orange-500',
+    'Restaurantes & iFood': 'from-orange-500 to-rose-500',
+    'Supermercado & Feira': 'from-emerald-500 to-teal-500',
+    'Uber / Transporte Público': 'from-purple-500 to-indigo-500',
+    'Vestuário, Roupas & Compras': 'from-cyan-500 to-blue-500',
+    'Lazer & Entretenimento': 'from-pink-500 to-rose-500',
+    'Gastos Aleatórios & Imprevistos': 'from-slate-400 to-slate-600',
+  };
+
   useEffect(() => {
     fetchTransactions();
   }, []);
@@ -33,7 +43,6 @@ export default function App() {
     setLoading(false);
   }
 
-  // 2. Gravar no Supabase
   async function handleSaveTransaction(newTx) {
     const payload = {
       id: newTx.id,
@@ -58,7 +67,6 @@ export default function App() {
     }
   }
 
-  // 3. Alternar Status (Pago / Pendente)
   async function handleToggleStatus(id) {
     const tx = transactions.find(t => t.id === id);
     if (!tx) return;
@@ -79,7 +87,6 @@ export default function App() {
     }
   }
 
-  // 4. Excluir Lançamento
   async function handleDeleteTransaction(id) {
     const { error } = await supabase.from('transactions').delete().eq('id', id);
 
@@ -105,7 +112,7 @@ export default function App() {
 
   const currentBalance = totalIncome - totalExpensePaid;
 
-  // Agrupamento de Gastos por Categoria (Para a Aba Análise)
+  // Agrupamento por Categoria
   const expensesByCategory = transactions
     .filter(t => t.type === 'expense')
     .reduce((acc, t) => {
@@ -115,6 +122,9 @@ export default function App() {
     }, {});
 
   const totalExpenseOverall = Object.values(expensesByCategory).reduce((a, b) => a + b, 0);
+
+  // Saúde Financeira (Porcentagem comprometida da renda)
+  const commitmentRatio = totalIncome > 0 ? Math.round((totalExpensePaid / totalIncome) * 100) : 0;
 
   const handleOpenQuickModal = (data) => {
     setQuickData(data);
@@ -127,10 +137,10 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans pb-24 selection:bg-cyan-500 selection:text-slate-950">
       
-      {/* Topo / Header */}
-      <header className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-md border-b border-slate-800/80 px-4 py-3 flex items-center justify-between">
+      {/* Topo / Header Neon */}
+      <header className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-md border-b border-slate-800/80 px-4 py-3 flex items-center justify-between shadow-lg shadow-black/50">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-extrabold text-slate-950 shadow-lg shadow-cyan-500/20">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-extrabold text-slate-950 shadow-lg shadow-cyan-500/30">
             $
           </div>
           <h1 className="text-base font-extrabold tracking-tight bg-gradient-to-r from-slate-100 via-slate-200 to-slate-400 bg-clip-text text-transparent">
@@ -143,7 +153,7 @@ export default function App() {
             setQuickData(null);
             setIsModalOpen(true);
           }}
-          className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1 shadow-md shadow-cyan-500/20 active:scale-95 transition"
+          className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold px-3.5 py-1.5 rounded-xl text-xs flex items-center gap-1 shadow-md shadow-cyan-500/25 active:scale-95 transition"
         >
           <Plus className="w-4 h-4 stroke-[3]" />
           <span>Lançar</span>
@@ -154,7 +164,7 @@ export default function App() {
       <main className="max-w-lg mx-auto p-4 space-y-4">
         {loading ? (
           <div className="p-12 text-center text-xs text-slate-500 animate-pulse">
-            Carregando dados da nuvem...
+            Sincronizando com a nuvem...
           </div>
         ) : (
           <>
@@ -172,7 +182,7 @@ export default function App() {
                 <QuickShortcuts onSelectShortcut={handleOpenQuickModal} />
 
                 {/* Extrato Recente */}
-                <div className="bg-slate-900/80 rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
+                <div className="bg-slate-900/80 rounded-2xl border border-slate-800 overflow-hidden shadow-xl backdrop-blur-sm">
                   <div className="p-3 border-b border-slate-800/80 flex items-center justify-between">
                     <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Lançamentos Recentes</h3>
                     <span className="text-[10px] text-slate-400">{transactions.length} item(ns)</span>
@@ -195,7 +205,7 @@ export default function App() {
                       ))
                     ) : (
                       <div className="p-6 text-center text-xs text-slate-500">
-                        Nenhum lançamento registrado na nuvem. Clique em "+ Lançar" para testar!
+                        Nenhum lançamento registrado. Clique em "+ Lançar"!
                       </div>
                     )}
                   </div>
@@ -212,10 +222,37 @@ export default function App() {
               />
             )}
 
-            {/* ABA 3: ANÁLISE DINÂMICA DE DESPESAS */}
+            {/* ABA 3: ANÁLISE ULTRA-MODERNA */}
             {activeTab === 'analise' && (
               <div className="space-y-4">
-                <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-2xl space-y-3">
+                {/* Card de Indicador de Comprometimento de Renda */}
+                <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Comprometimento da Renda</span>
+                    {commitmentRatio <= 50 ? (
+                      <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20">
+                        <ShieldCheck className="w-3 h-3" /> Saudável ({commitmentRatio}%)
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-lg border border-amber-500/20">
+                        <AlertTriangle className="w-3 h-3" /> Atenção ({commitmentRatio}%)
+                      </span>
+                    )}
+                  </div>
+                  <div className="w-full h-2.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+                    <div
+                      className={`h-full transition-all duration-500 ${
+                        commitmentRatio <= 50
+                          ? 'bg-gradient-to-r from-emerald-500 to-teal-400'
+                          : 'bg-gradient-to-r from-amber-500 to-rose-500'
+                      }`}
+                      style={{ width: `${Math.min(commitmentRatio, 100)}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Detalhamento por Categoria com Cores Personalizadas */}
+                <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl space-y-3 shadow-xl">
                   <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
                     <BarChart2 className="w-5 h-5 text-cyan-400" />
                     <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider">Detalhamento por Categoria</h3>
@@ -225,15 +262,17 @@ export default function App() {
                     <div className="space-y-3 pt-1">
                       {Object.entries(expensesByCategory).map(([cat, val]) => {
                         const percent = totalExpenseOverall > 0 ? Math.round((val / totalExpenseOverall) * 100) : 0;
+                        const gradient = categoryColors[cat] || 'from-cyan-500 to-blue-600';
+
                         return (
                           <div key={cat} className="space-y-1">
                             <div className="flex justify-between text-xs font-semibold">
-                              <span className="text-slate-300">{cat}</span>
-                              <span className="text-cyan-400">{formatCurrency(val)} ({percent}%)</span>
+                              <span className="text-slate-200">{cat}</span>
+                              <span className="text-cyan-400 font-bold">{formatCurrency(val)} <span className="text-slate-500 text-[10px]">({percent}%)</span></span>
                             </div>
-                            <div className="w-full h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+                            <div className="w-full h-2.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800/80">
                               <div
-                                className="h-full bg-gradient-to-r from-cyan-500 to-blue-600 rounded-full"
+                                className={`h-full bg-gradient-to-r ${gradient} rounded-full transition-all duration-500`}
                                 style={{ width: `${percent}%` }}
                               />
                             </div>
@@ -242,16 +281,16 @@ export default function App() {
                       })}
                     </div>
                   ) : (
-                    <p className="text-xs text-slate-500 text-center py-4">Sem saídas cadastradas para análise visual.</p>
+                    <p className="text-xs text-slate-500 text-center py-4">Nenhum gasto registrado para análise.</p>
                   )}
                 </div>
               </div>
             )}
 
-            {/* ABA 4: AGENDA DINÂMICA DE VENCIMENTOS */}
+            {/* ABA 4: AGENDA */}
             {activeTab === 'agenda' && (
               <div className="space-y-4">
-                <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-2xl space-y-3">
+                <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl space-y-3 shadow-xl">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                     <div className="flex items-center gap-2">
                       <Calendar className="w-5 h-5 text-cyan-400" />
@@ -272,16 +311,16 @@ export default function App() {
                             )}
                             <div>
                               <p className="text-xs font-semibold text-slate-200">{item.description}</p>
-                              <p className="text-[10px] text-slate-400">Data: {item.date}</p>
+                              <p className="text-[10px] text-slate-400">Vencimento: {item.date}</p>
                             </div>
                           </div>
-                          <span className={`text-xs font-bold ${item.status === 'paid' ? 'text-slate-400 line-through' : 'text-amber-400'}`}>
+                          <span className={`text-xs font-bold ${item.status === 'paid' ? 'text-slate-500 line-through' : 'text-amber-400'}`}>
                             {formatCurrency(item.amount)}
                           </span>
                         </div>
                       ))
                     ) : (
-                      <p className="text-xs text-slate-500 text-center py-4">Nenhuma conta agendada.</p>
+                      <p className="text-xs text-slate-500 text-center py-4">Nenhuma conta no cronograma.</p>
                     )}
                   </div>
                 </div>
@@ -299,8 +338,8 @@ export default function App() {
         initialData={quickData}
       />
 
-      {/* Navegação Inferior (4 ABAS COMPLETAS) */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-slate-950/90 backdrop-blur-lg border-t border-slate-800/80 z-40">
+      {/* Navegação Inferior Modernizada */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-slate-950/90 backdrop-blur-lg border-t border-slate-800/80 z-40 shadow-2xl">
         <div className="max-w-lg mx-auto flex items-center justify-around p-2">
           {[
             { id: 'inicio', label: 'Início', icon: LayoutDashboard },
@@ -316,7 +355,7 @@ export default function App() {
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex flex-col items-center gap-1 p-2 rounded-2xl w-16 transition ${
                   isActive
-                    ? 'text-cyan-400 bg-cyan-500/10 font-bold'
+                    ? 'text-cyan-400 bg-cyan-500/10 font-bold shadow-inner'
                     : 'text-slate-500 hover:text-slate-300 font-medium'
                 }`}
               >
