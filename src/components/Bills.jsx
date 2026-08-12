@@ -12,47 +12,64 @@ export default function Bills({ transactions, onToggleStatus, onDelete }) {
   const now = new Date();
   const currentMonthYear = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
+  // 1. Filtro Abrangente para incluir todos os Vencimentos, Parcelados, Financiamentos e Contas do Mês
   const currentMonthBills = transactions.filter(t => {
     if (t.type !== 'expense') return false;
     
     const isThisMonth = t.date && t.date.startsWith(currentMonthYear);
     if (!isThisMonth) return false;
 
+    // É um parcelamento? (Ex: 1/3, 1/36)
+    const isInstallmentTx = (t.installments && t.installments > 1) || /\(\d+\/\d+\)/.test(t.description);
+
+    // Método de pagamento de contas
     const isBillMethod = 
       t.paymentMethod === 'Cartão de Crédito' || 
       t.paymentMethod === 'Crediário / Carnê' || 
-      t.paymentMethod === 'Financiamento' ||
+      t.paymentMethod === 'Financiamento';
+
+    // Categoria de contas fixas / financiamentos
+    const isBillCategory = 
       t.category === 'Moradia & Contas Fixas' ||
       t.category === 'Contas de Consumo' ||
       t.category === 'Assinaturas & Serviços Recorrentes' ||
+      t.category === 'Financiamentos & Empréstimos' ||
       t.isRecurring;
 
-    return isBillMethod || t.status === 'pending';
+    // Se atender a qualquer um dos critérios ou estiver pendente, entra na aba Contas
+    return isInstallmentTx || isBillMethod || isBillCategory || t.status === 'pending';
   });
 
+  // 2. Filtro pelas sub-abas superiores
   const filteredBills = currentMonthBills.filter(t => {
     if (filter === 'cartao') return t.paymentMethod === 'Cartão de Crédito';
-    if (filter === 'financiamento') return t.paymentMethod === 'Financiamento' || t.category === 'Financiamentos & Empréstimos';
-    if (filter === 'parcelados') return t.paymentMethod === 'Crediário / Carnê' || (t.installments && t.installments > 1 && t.paymentMethod !== 'Cartão de Crédito');
-    if (filter === 'assinaturas') return t.isRecurring || t.category === 'Assinaturas & Serviços Recorrentes';
-    return true; // 'all'
+    if (filter === 'financiamento') {
+      return t.paymentMethod === 'Financiamento' || t.category === 'Financiamentos & Empréstimos' || t.description.toLowerCase().includes('moto');
+    }
+    if (filter === 'parcelados') {
+      return t.paymentMethod === 'Crediário / Carnê' || (t.installments && t.installments > 1) || /\(\d+\/\d+\)/.test(t.description);
+    }
+    if (filter === 'assinaturas') {
+      return t.isRecurring || t.category === 'Assinaturas & Serviços Recorrentes';
+    }
+    return true; // 'all' - Vencimentos do Mês
   });
 
   const totalBillsAmount = filteredBills.reduce((acc, t) => acc + (Number(t.amount) || 0), 0);
   const totalPendingAmount = filteredBills
     .filter(t => t.status === 'pending')
-    .reduce((acc, t) => acc + (Number(t.amount) || 0), 0);
+    .reduce((acc, t) => acc + (Number(t.amount || 0)), 0);
 
   return (
     <div className="space-y-4">
-      {/* Sub-abas de Navegação de Contas */}
+      {/* Sub-abas de Navegação */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
         {[
           { id: 'all', label: 'Vencimentos do Mês', icon: Calendar },
           { id: 'cartao', label: 'Cartão de Crédito', icon: CreditCard },
           { id: 'assinaturas', label: 'Assinaturas', icon: RefreshCw },
           { id: 'financiamento', label: 'Financiamentos', icon: Car },
-          { id: 'parcelados', label: 'Parcelados', icon: ShoppingBag },
+          { id: 'parcelados', label: 'Parcelados / Carnê', icon: ShoppingBag },
         ].map(tab => {
           const Icon = tab.icon;
           const isActive = filter === tab.id;
@@ -129,7 +146,7 @@ export default function Bills({ transactions, onToggleStatus, onDelete }) {
             ))
           ) : (
             <div className="p-8 text-center text-xs text-slate-500">
-              Nenhum lançamento para esta sub-aba no mês.
+              Nenhuma conta para esta sub-aba no mês.
             </div>
           )}
         </div>
