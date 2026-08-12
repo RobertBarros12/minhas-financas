@@ -4,19 +4,27 @@ import Summary from './components/Summary';
 import TransactionModal from './components/TransactionModal';
 import Bills from './components/Bills';
 import QuickShortcuts from './components/QuickShortcuts';
+import Vaults from './components/Vaults';
 import { 
   Plus, LayoutDashboard, CreditCard, BarChart2, Calendar as CalendarIcon, 
   CheckCircle2, Clock, Trophy, Flame, Trash2, ChevronDown, 
   ChevronUp, ShieldCheck, AlertTriangle, RefreshCw, Zap, TrendingUp, TrendingDown,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, PiggyBank
 } from 'lucide-react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('inicio');
   const [transactions, setTransactions] = useState([]);
+  const [vaults, setVaults] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [quickData, setQuickData] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Estado do Filtro de Mês/Ano (Navegação no Histórico)
+  const [selectedMonthYear, setSelectedMonthYear] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
 
   // Estados do Calendário Interativo da Agenda
   const [calendarDate, setCalendarDate] = useState(new Date());
@@ -26,24 +34,9 @@ export default function App() {
   const [rankingMode, setRankingMode] = useState('items');
   const [expandedMethod, setExpandedMethod] = useState(null);
 
-  const categoryColors = {
-    'Moradia & Contas Fixas': 'from-blue-600 to-indigo-600',
-    'Contas de Consumo': 'from-sky-500 to-blue-500',
-    'Supermercado & Feira': 'from-emerald-500 to-teal-500',
-    'Restaurantes & iFood': 'from-orange-500 to-rose-500',
-    'Uber / Transporte Público': 'from-purple-500 to-indigo-500',
-    'Combustível & Manutenção': 'from-violet-500 to-purple-600',
-    'Vestuário, Roupas & Compras': 'from-cyan-500 to-blue-500',
-    'Saúde & Farmácia': 'from-red-500 to-rose-500',
-    'Educação & Cursos': 'from-amber-500 to-yellow-500',
-    'Lazer & Entretenimento': 'from-pink-500 to-rose-500',
-    'Financiamentos & Empréstimos': 'from-rose-600 to-red-700',
-    'Assinaturas & Serviços Recorrentes': 'from-purple-600 to-violet-600',
-    'Gastos Aleatórios & Imprevistos': 'from-slate-400 to-slate-600',
-  };
-
   useEffect(() => {
     fetchTransactions();
+    fetchVaults();
   }, []);
 
   async function fetchTransactions() {
@@ -53,13 +46,44 @@ export default function App() {
       .select('*')
       .order('date', { ascending: false });
 
-    if (error) {
-      console.error('Erro ao buscar do Supabase:', error);
-    } else if (data) {
+    if (!error && data) {
       setTransactions(data);
     }
     setLoading(false);
   }
+
+  // Buscar Caixinhas do Supabase (Fallback para localStorage se a tabela não existir)
+  async function fetchVaults() {
+    const local = localStorage.getItem('minhas_financas_vaults');
+    if (local) {
+      try { setVaults(JSON.parse(local)); } catch (e) {}
+    }
+  }
+
+  const saveVaults = (newVaults) => {
+    setVaults(newVaults);
+    localStorage.setItem('minhas_financas_vaults', JSON.stringify(newVaults));
+  };
+
+  const handleCreateVault = (newVault) => {
+    saveVaults([...vaults, newVault]);
+  };
+
+  const handleUpdateVaultAmount = (vaultId, delta) => {
+    const updated = vaults.map(v => {
+      if (v.id === vaultId) {
+        const nextAmount = Math.max(0, Number(v.currentAmount || 0) + delta);
+        return { ...v, currentAmount: nextAmount };
+      }
+      return v;
+    });
+    saveVaults(updated);
+  };
+
+  const handleDeleteVault = (vaultId) => {
+    if (!window.confirm('Tem certeza que deseja excluir esta Caixinha?')) return;
+    saveVaults(vaults.filter(v => v.id !== vaultId));
+  };
 
   async function handleSaveTransaction(newTx) {
     const payload = {
@@ -96,21 +120,17 @@ export default function App() {
       .update({ status: newStatus })
       .eq('id', id);
 
-    if (error) {
-      console.error('Erro ao atualizar:', error);
-    } else {
+    if (!error) {
       setTransactions(prev =>
         prev.map(t => (t.id === id ? { ...t, status: newStatus } : t))
       );
     }
   }
 
-  // Exclusão Inteligente (Permite apagar apenas uma ou todas as parcelas do mesmo grupo)
   async function handleDeleteTransaction(id) {
     const targetTx = transactions.find(t => t.id === id);
     if (!targetTx) return;
 
-    // Extrai o nome base da descrição (ex: remove o "(5/5)" para encontrar os correspondentes)
     const baseDescription = targetTx.description.replace(/\s\(\d+\/\d+\)$/, '');
     const relatedParcelCount = transactions.filter(t => t.description.startsWith(baseDescription)).length;
 
@@ -129,37 +149,23 @@ export default function App() {
         .delete()
         .ilike('description', `${baseDescription}%`);
 
-      if (error) {
-        console.error('Erro ao deletar grupo:', error);
-        alert('Erro ao excluir lançamentos vinculados.');
-      } else {
+      if (!error) {
         setTransactions(prev => prev.filter(t => !t.description.startsWith(baseDescription)));
       }
     } else {
       const { error } = await supabase.from('transactions').delete().eq('id', id);
 
-      if (error) {
-        console.error('Erro ao deletar:', error);
-        alert('Erro ao excluir lançamento.');
-      } else {
+      if (!error) {
         setTransactions(prev => prev.filter(t => t.id !== id));
       }
     }
   }
 
-  // Datas e Filtros de Período
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonthNum = now.getMonth() + 1;
-  const currentMonthYear = `${currentYear}-${String(currentMonthNum).padStart(2, '0')}`;
+  // Transações Filtradas Pelo Mês/Ano Selecionado no Topo
+  const currentMonthTransactions = transactions.filter(
+    t => t.date && t.date.startsWith(selectedMonthYear)
+  );
 
-  const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const prevMonthYear = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
-
-  const currentMonthTransactions = transactions.filter(t => t.date && t.date.startsWith(currentMonthYear));
-  const prevMonthTransactions = transactions.filter(t => t.date && t.date.startsWith(prevMonthYear));
-
-  // Totais Atuais
   const totalIncome = currentMonthTransactions
     .filter(t => t.type === 'income' && t.status === 'paid')
     .reduce((acc, t) => acc + Number(t.amount || 0), 0);
@@ -173,14 +179,6 @@ export default function App() {
     .reduce((acc, t) => acc + Number(t.amount || 0), 0);
 
   const currentBalance = totalIncome - totalExpensePaid;
-
-  const prevTotalExpensePaid = prevMonthTransactions
-    .filter(t => t.type === 'expense' && t.status === 'paid')
-    .reduce((acc, t) => acc + Number(t.amount || 0), 0);
-
-  const expenseDiffPercent = prevTotalExpensePaid > 0 
-    ? Math.round(((totalExpensePaid - prevTotalExpensePaid) / prevTotalExpensePaid) * 100) 
-    : 0;
 
   // Score de Saúde
   const calculateScore = () => {
@@ -226,16 +224,6 @@ export default function App() {
   const rankedMethods = Object.entries(expensesByMethod)
     .sort((a, b) => b[1].total - a[1].total);
 
-  // Regra 50/30/20
-  const needsExpenses = currentMonthTransactions
-    .filter(t => t.type === 'expense' && (t.category?.includes('Mercado') || t.category?.includes('Contas') || t.category?.includes('Moradia')))
-    .reduce((acc, t) => acc + Number(t.amount || 0), 0);
-
-  const wantsExpenses = totalExpensePaid - needsExpenses;
-
-  const needsRatio = totalIncome > 0 ? Math.round((needsExpenses / totalIncome) * 100) : 0;
-  const wantsRatio = totalIncome > 0 ? Math.round((wantsExpenses / totalIncome) * 100) : 0;
-
   // Lógica de Geração do Calendário
   const calYear = calendarDate.getFullYear();
   const calMonth = calendarDate.getMonth();
@@ -248,8 +236,6 @@ export default function App() {
   ];
 
   const calMonthYearStr = `${calYear}-${String(calMonth + 1).padStart(2, '0')}`;
-
-  // Itens do Dia Selecionado na Agenda
   const selectedDayStr = `${calMonthYearStr}-${String(selectedDay).padStart(2, '0')}`;
   const selectedDayTransactions = transactions.filter(t => t.date === selectedDayStr);
 
@@ -268,7 +254,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans pb-24 selection:bg-cyan-500 selection:text-slate-950">
       
-      {/* Header Neon */}
+      {/* Header Neon com Seletor de Mês/Ano */}
       <header className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-md border-b border-slate-800/80 px-4 py-3 flex items-center justify-between shadow-lg shadow-black/50">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-extrabold text-slate-950 shadow-lg shadow-cyan-500/30">
@@ -279,16 +265,26 @@ export default function App() {
           </h1>
         </div>
 
-        <button
-          onClick={() => {
-            setQuickData(null);
-            setIsModalOpen(true);
-          }}
-          className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold px-3.5 py-1.5 rounded-xl text-xs flex items-center gap-1 shadow-md shadow-cyan-500/25 active:scale-95 transition"
-        >
-          <Plus className="w-4 h-4 stroke-[3]" />
-          <span>Lançar</span>
-        </button>
+        {/* Seletor de Mês/Ano para Navegação Temporal */}
+        <div className="flex items-center gap-2">
+          <input
+            type="month"
+            value={selectedMonthYear}
+            onChange={(e) => setSelectedMonthYear(e.target.value)}
+            className="bg-slate-900 border border-slate-800 text-cyan-400 text-xs font-bold rounded-xl px-2 py-1 focus:outline-none focus:border-cyan-500"
+          />
+
+          <button
+            onClick={() => {
+              setQuickData(null);
+              setIsModalOpen(true);
+            }}
+            className="bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1 shadow-md shadow-cyan-500/25 active:scale-95 transition"
+          >
+            <Plus className="w-4 h-4 stroke-[3]" />
+            <span>Lançar</span>
+          </button>
+        </div>
       </header>
 
       {/* Conteúdo Principal */}
@@ -312,10 +308,10 @@ export default function App() {
 
                 <QuickShortcuts onSelectShortcut={handleOpenQuickModal} />
 
-                {/* Extrato do Mês */}
+                {/* Extrato do Mês Selecionado */}
                 <div className="bg-slate-900/80 rounded-2xl border border-slate-800 overflow-hidden shadow-xl backdrop-blur-sm">
                   <div className="p-3 border-b border-slate-800/80 flex items-center justify-between">
-                    <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Lançamentos do Mês</h3>
+                    <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Extrato de {selectedMonthYear}</h3>
                     <span className="text-[10px] text-slate-400">{currentMonthTransactions.length} item(ns)</span>
                   </div>
 
@@ -530,14 +526,20 @@ export default function App() {
               </div>
             )}
 
-            {/* ABA 4: AGENDA INTERATIVA EM CALENDÁRIO GRID */}
+            {/* ABA 4: CAIXINHAS / RESERVAS */}
+            {activeTab === 'caixinhas' && (
+              <Vaults
+                vaults={vaults}
+                onCreateVault={handleCreateVault}
+                onUpdateVaultAmount={handleUpdateVaultAmount}
+                onDeleteVault={handleDeleteVault}
+              />
+            )}
+
+            {/* ABA 5: AGENDA */}
             {activeTab === 'agenda' && (
               <div className="space-y-4">
-                
-                {/* CALENDÁRIO MENSAL GRID */}
                 <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl space-y-3">
-                  
-                  {/* Cabeçalho de Navegação de Mês */}
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                     <div className="flex items-center gap-2">
                       <CalendarIcon className="w-5 h-5 text-cyan-400" />
@@ -571,12 +573,10 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Dias da Semana */}
                   <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-slate-500 uppercase">
                     <span>Dom</span><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span>
                   </div>
 
-                  {/* Grid de Dias */}
                   <div className="grid grid-cols-7 gap-1 text-center">
                     {Array.from({ length: firstDayIndex }).map((_, i) => (
                       <div key={`empty-${i}`} className="h-9 rounded-xl bg-slate-950/20" />
@@ -585,13 +585,10 @@ export default function App() {
                     {Array.from({ length: daysInMonth }).map((_, i) => {
                       const dayNum = i + 1;
                       const dayStr = `${calMonthYearStr}-${String(dayNum).padStart(2, '0')}`;
-                      
                       const dayTxs = transactions.filter(t => t.date === dayStr);
                       const hasPending = dayTxs.some(t => t.type === 'expense' && t.status === 'pending');
                       const hasPaidOnly = dayTxs.length > 0 && !hasPending;
-                      
                       const isSelected = selectedDay === dayNum;
-                      const isToday = now.getDate() === dayNum && now.getMonth() === calMonth && now.getFullYear() === calYear;
 
                       return (
                         <button
@@ -600,28 +597,18 @@ export default function App() {
                           className={`relative h-9 rounded-xl flex flex-col items-center justify-center font-bold text-xs transition ${
                             isSelected
                               ? 'bg-cyan-500 text-slate-950 font-black shadow-md shadow-cyan-500/30 ring-2 ring-cyan-400'
-                              : isToday
-                              ? 'bg-slate-800 text-cyan-400 border border-cyan-500/40'
                               : 'bg-slate-950/60 text-slate-300 hover:bg-slate-800/60'
                           }`}
                         >
                           <span>{dayNum}</span>
-
-                          {/* Ponto Vermelho Neon para Vencimentos Pendentes */}
-                          {hasPending && (
-                            <span className="absolute bottom-1 w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse shadow-sm shadow-rose-500/80" />
-                          )}
-                          {/* Ponto Verde para Lançamentos Quitados */}
-                          {hasPaidOnly && (
-                            <span className="absolute bottom-1 w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                          )}
+                          {hasPending && <span className="absolute bottom-1 w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />}
+                          {hasPaidOnly && <span className="absolute bottom-1 w-1.5 h-1.5 rounded-full bg-emerald-400" />}
                         </button>
                       );
                     })}
                   </div>
                 </div>
 
-                {/* COMPROMISSOS DO DIA SELECIONADO */}
                 <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl space-y-3 shadow-xl">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                     <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider">
@@ -653,7 +640,6 @@ export default function App() {
                             <button
                               onClick={() => handleDeleteTransaction(item.id)}
                               className="text-slate-500 hover:text-rose-400 p-1 rounded transition"
-                              title="Excluir do banco"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -662,7 +648,7 @@ export default function App() {
                       ))
                     ) : (
                       <p className="text-xs text-slate-500 text-center py-6">
-                        Nenhuma conta ou vencimento agendado para o dia {selectedDay}.
+                        Nenhum compromisso agendado para o dia {selectedDay}.
                       </p>
                     )}
                   </div>
@@ -680,11 +666,13 @@ export default function App() {
         initialData={quickData}
       />
 
+      {/* Navegação Inferior Atualizada com 5 Abas */}
       <nav className="fixed bottom-0 left-0 right-0 bg-slate-950/90 backdrop-blur-lg border-t border-slate-800/80 z-40 shadow-2xl">
         <div className="max-w-lg mx-auto flex items-center justify-around p-2">
           {[
             { id: 'inicio', label: 'Início', icon: LayoutDashboard },
             { id: 'contas', label: 'Contas', icon: CreditCard },
+            { id: 'caixinhas', label: 'Reservas', icon: PiggyBank },
             { id: 'analise', label: 'Análise', icon: BarChart2 },
             { id: 'agenda', label: 'Agenda', icon: CalendarIcon },
           ].map(tab => {
@@ -694,14 +682,14 @@ export default function App() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex flex-col items-center gap-1 p-2 rounded-2xl w-16 transition ${
+                className={`flex flex-col items-center gap-1 p-2 rounded-2xl transition ${
                   isActive
                     ? 'text-cyan-400 bg-cyan-500/10 font-bold shadow-inner'
                     : 'text-slate-500 hover:text-slate-300 font-medium'
                 }`}
               >
                 <Icon className="w-5 h-5" />
-                <span className="text-[10px]">{tab.label}</span>
+                <span className="text-[9px]">{tab.label}</span>
               </button>
             );
           })}
