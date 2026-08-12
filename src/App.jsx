@@ -4,7 +4,11 @@ import Summary from './components/Summary';
 import TransactionModal from './components/TransactionModal';
 import Bills from './components/Bills';
 import QuickShortcuts from './components/QuickShortcuts';
-import { Plus, LayoutDashboard, CreditCard, BarChart2, Calendar, CheckCircle2, Clock, Trophy, Flame, Trash2, ChevronDown, ChevronUp, Wallet, Layers, Car, Zap } from 'lucide-react';
+import { 
+  Plus, LayoutDashboard, CreditCard, BarChart2, Calendar, 
+  CheckCircle2, Clock, Trophy, Flame, Trash2, ChevronDown, 
+  ChevronUp, ShieldCheck, AlertTriangle, RefreshCw, Zap, TrendingUp, TrendingDown 
+} from 'lucide-react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('inicio');
@@ -13,7 +17,7 @@ export default function App() {
   const [quickData, setQuickData] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Estado para alternar o modo do Ranking e controlar modalidade expandida
+  // Controle de alternância do Ranking e gavetas sanfona
   const [rankingMode, setRankingMode] = useState('items'); // 'items' ou 'methods'
   const [expandedMethod, setExpandedMethod] = useState(null);
 
@@ -108,12 +112,21 @@ export default function App() {
     }
   }
 
+  // Datas e Filtros de Período
   const now = new Date();
-  const currentMonthYear = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const currentYear = now.getFullYear();
+  const currentMonthNum = now.getMonth() + 1;
+  const currentMonthYear = `${currentYear}-${String(currentMonthNum).padStart(2, '0')}`;
 
-  // Filtro Estrito para o Mês Atual
+  // Mês Anterior para o Comparativo
+  const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const prevMonthYear = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+
+  // Transações do Mês Atual e do Mês Anterior
   const currentMonthTransactions = transactions.filter(t => t.date && t.date.startsWith(currentMonthYear));
+  const prevMonthTransactions = transactions.filter(t => t.date && t.date.startsWith(prevMonthYear));
 
+  // Totais Atuais
   const totalIncome = currentMonthTransactions
     .filter(t => t.type === 'income' && t.status === 'paid')
     .reduce((acc, t) => acc + Number(t.amount || 0), 0);
@@ -128,13 +141,47 @@ export default function App() {
 
   const currentBalance = totalIncome - totalExpensePaid;
 
-  // Ranking 1: Maiores Gastos Individuais do Mês
+  // Total do Mês Anterior para Comparativo
+  const prevTotalExpensePaid = prevMonthTransactions
+    .filter(t => t.type === 'expense' && t.status === 'paid')
+    .reduce((acc, t) => acc + Number(t.amount || 0), 0);
+
+  const expenseDiffPercent = prevTotalExpensePaid > 0 
+    ? Math.round(((totalExpensePaid - prevTotalExpensePaid) / prevTotalExpensePaid) * 100) 
+    : 0;
+
+  // 1. CÁLCULO DO SCORE DE SAÚDE FINANCEIRA (0 a 100)
+  const calculateScore = () => {
+    if (totalIncome === 0 && totalExpensePaid === 0) return 100;
+    if (totalIncome === 0) return 30;
+    
+    const ratio = totalExpensePaid / totalIncome;
+    let baseScore = 100 - Math.round(ratio * 70);
+
+    if (totalPendingExpense > 0) baseScore -= 10;
+    return Math.max(10, Math.min(100, baseScore));
+  };
+
+  const healthScore = calculateScore();
+
+  // 2. DETECÇÃO DE RALOS INVISÍVEIS (Pequenos gastos repetidos < R$ 40)
+  const smallExpenses = currentMonthTransactions.filter(
+    t => t.type === 'expense' && Number(t.amount || 0) <= 40
+  );
+  const totalSmallExpenses = smallExpenses.reduce((acc, t) => acc + Number(t.amount || 0), 0);
+
+  // 3. RASTREADOR DE ASSINATURAS E SERVIÇOS RECORRENTES
+  const subscriptions = currentMonthTransactions.filter(
+    t => t.isRecurring || t.category === 'Contas de Consumo' || t.description.toLowerCase().includes('netflix') || t.description.toLowerCase().includes('spotify')
+  );
+  const totalSubscriptionsMonthly = subscriptions.reduce((acc, t) => acc + Number(t.amount || 0), 0);
+
+  // Rankings
   const topExpensesRanking = [...currentMonthTransactions]
     .filter(t => t.type === 'expense')
     .sort((a, b) => Number(b.amount || 0) - Number(a.amount || 0))
     .slice(0, 5);
 
-  // Ranking 2: Gastos Agrupados por Modalidade / Forma de Pagamento
   const expensesByMethod = currentMonthTransactions
     .filter(t => t.type === 'expense')
     .reduce((acc, t) => {
@@ -219,7 +266,7 @@ export default function App() {
 
                 <QuickShortcuts onSelectShortcut={handleOpenQuickModal} />
 
-                {/* Extrato do Mês Atual */}
+                {/* Extrato do Mês */}
                 <div className="bg-slate-900/80 rounded-2xl border border-slate-800 overflow-hidden shadow-xl backdrop-blur-sm">
                   <div className="p-3 border-b border-slate-800/80 flex items-center justify-between">
                     <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Lançamentos do Mês</h3>
@@ -269,11 +316,76 @@ export default function App() {
               />
             )}
 
-            {/* ABA 3: ANÁLISE INTERATIVA */}
+            {/* ABA 3: ANÁLISE ULTRA-TECNOLÓGICA */}
             {activeTab === 'analise' && (
               <div className="space-y-4">
                 
-                {/* RANKING INTERATIVO COM ALTERNADOR */}
+                {/* 1. SCORE DE SAÚDE FINANCEIRA */}
+                <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl flex items-center justify-between">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Score de Saúde Financeira</span>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-2xl font-black text-slate-100">{healthScore} <span className="text-xs font-semibold text-slate-500">/ 100</span></h2>
+                      {healthScore >= 70 ? (
+                        <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-lg flex items-center gap-1">
+                          <ShieldCheck className="w-3 h-3" /> Excelente
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-lg flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3" /> Atenção
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Anel de Progresso Circular */}
+                  <div className="relative w-14 h-14 flex items-center justify-center">
+                    <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                      <path
+                        className="text-slate-950"
+                        strokeWidth="3.5"
+                        stroke="currentColor"
+                        fill="none"
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      />
+                      <path
+                        className={healthScore >= 70 ? 'text-cyan-400' : 'text-amber-400'}
+                        strokeDasharray={`${healthScore}, 100`}
+                        strokeWidth="3.5"
+                        strokeLinecap="round"
+                        stroke="currentColor"
+                        fill="none"
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      />
+                    </svg>
+                    <span className="absolute text-[11px] font-black text-slate-200">{healthScore}%</span>
+                  </div>
+                </div>
+
+                {/* 2. CARD DE RALOS INVISÍVEIS & ASSINATURAS */}
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Pequenos Gastos */}
+                  <div className="p-3.5 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl space-y-1">
+                    <div className="flex items-center gap-1.5 text-rose-400">
+                      <Zap className="w-4 h-4" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider">Ralos Invisíveis</span>
+                    </div>
+                    <p className="text-sm font-black text-slate-100">{formatCurrency(totalSmallExpenses)}</p>
+                    <p className="text-[9px] text-slate-400">{smallExpenses.length} compras ≤ R$ 40</p>
+                  </div>
+
+                  {/* Assinaturas & Recorrentes */}
+                  <div className="p-3.5 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl space-y-1">
+                    <div className="flex items-center gap-1.5 text-purple-400">
+                      <RefreshCw className="w-4 h-4" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider">Assinaturas / Mês</span>
+                    </div>
+                    <p className="text-sm font-black text-slate-100">{formatCurrency(totalSubscriptionsMonthly)}</p>
+                    <p className="text-[9px] text-slate-400">~ {formatCurrency(totalSubscriptionsMonthly * 12)} / ano</p>
+                  </div>
+                </div>
+
+                {/* 3. RANKING FINANCEIRO INTERATIVO */}
                 <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl space-y-3">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                     <div className="flex items-center gap-2">
@@ -281,7 +393,6 @@ export default function App() {
                       <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider">Ranking Financeiro</h3>
                     </div>
 
-                    {/* Alternador de Modo do Ranking */}
                     <div className="flex gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
                       <button
                         onClick={() => setRankingMode('items')}
@@ -306,7 +417,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* MODO 1: MAIORES GASTOS INDIVIDUAIS */}
+                  {/* Modo 1: Maiores Gastos */}
                   {rankingMode === 'items' && (
                     topExpensesRanking.length > 0 ? (
                       <div className="space-y-2 pt-1">
@@ -337,7 +448,7 @@ export default function App() {
                     )
                   )}
 
-                  {/* MODO 2: RANKING POR MODALIDADE (CLICÁVEL / SANFONA) */}
+                  {/* Modo 2: Por Modalidade */}
                   {rankingMode === 'methods' && (
                     rankedMethods.length > 0 ? (
                       <div className="space-y-2 pt-1">
@@ -345,8 +456,6 @@ export default function App() {
                           const isExpanded = expandedMethod === methodName;
                           return (
                             <div key={methodName} className="bg-slate-950/60 rounded-xl border border-slate-800/80 overflow-hidden transition">
-                              
-                              {/* Linha Principal Clicável */}
                               <button
                                 onClick={() => toggleMethodExpand(methodName)}
                                 className="w-full flex items-center justify-between p-3 hover:bg-slate-800/30 transition text-left"
@@ -369,7 +478,6 @@ export default function App() {
                                 </div>
                               </button>
 
-                              {/* Gaveta Sanfona de Detalhes dos Gastos */}
                               {isExpanded && (
                                 <div className="p-3 bg-slate-900/60 border-t border-slate-800/80 divide-y divide-slate-800/50 space-y-2">
                                   <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider pb-1">Itens pagos via {methodName}:</p>
@@ -394,6 +502,22 @@ export default function App() {
                       <p className="text-xs text-slate-500 text-center py-4">Sem gastos cadastrados no mês.</p>
                     )
                   )}
+                </div>
+
+                {/* 4. COMPARATIVO COM O MÊS ANTERIOR */}
+                <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Comparativo de Gastos</span>
+                    <p className="text-xs font-semibold text-slate-200">Vs. Mês Anterior ({formatCurrency(prevTotalExpensePaid)})</p>
+                  </div>
+                  <div className={`px-3 py-1 rounded-xl border flex items-center gap-1 font-extrabold text-xs ${
+                    expenseDiffPercent <= 0
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                      : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                  }`}>
+                    {expenseDiffPercent <= 0 ? <TrendingDown className="w-3.5 h-3.5" /> : <TrendingUp className="w-3.5 h-3.5" />}
+                    <span>{expenseDiffPercent > 0 ? `+${expenseDiffPercent}%` : `${expenseDiffPercent}%`}</span>
+                  </div>
                 </div>
 
                 {/* EQUILÍBRIO 50/30/20 */}
