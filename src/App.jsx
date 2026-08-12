@@ -32,9 +32,9 @@ export default function App() {
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(new Date().getDate());
 
-  // Ranking
+  // Ranking: 'items' (Maiores Gastos) ou 'categories' (Por Categoria)
   const [rankingMode, setRankingMode] = useState('items');
-  const [expandedMethod, setExpandedMethod] = useState(null);
+  const [expandedCategory, setExpandedCategory] = useState(null);
 
   useEffect(() => {
     fetchTransactions();
@@ -79,7 +79,6 @@ export default function App() {
     localStorage.setItem('minhas_financas_investments', JSON.stringify(newInvestments));
   };
 
-  // Caixinhas/Reservas conectadas com o Extrato e Saldo Real
   const handleCreateVault = (newVault) => {
     saveVaults([...vaults, newVault]);
   };
@@ -116,7 +115,6 @@ export default function App() {
     saveVaults(vaults.filter(v => v.id !== vaultId));
   };
 
-  // Investimentos conectados com o Extrato e Saldo Real
   const handleCreateInvestment = (newInvest) => {
     saveInvestments([...investments, newInvest]);
 
@@ -283,24 +281,26 @@ export default function App() {
   );
   const totalSubscriptionsMonthly = subscriptions.reduce((acc, t) => acc + Number(t.amount || 0), 0);
 
+  // Rankings de Gastos
   const topExpensesRanking = [...currentMonthTransactions]
     .filter(t => t.type === 'expense')
     .sort((a, b) => Number(b.amount || 0) - Number(a.amount || 0))
     .slice(0, 5);
 
-  const expensesByMethod = currentMonthTransactions
+  // Agrupamento por Categoria para o Ranking
+  const expensesByCategory = currentMonthTransactions
     .filter(t => t.type === 'expense')
     .reduce((acc, t) => {
-      const method = t.paymentMethod || 'Outros';
-      if (!acc[method]) {
-        acc[method] = { total: 0, items: [] };
+      const cat = t.category || 'Gastos Aleatórios & Imprevistos';
+      if (!acc[cat]) {
+        acc[cat] = { total: 0, items: [] };
       }
-      acc[method].total += Number(t.amount || 0);
-      acc[method].items.push(t);
+      acc[cat].total += Number(t.amount || 0);
+      acc[cat].items.push(t);
       return acc;
     }, {});
 
-  const rankedMethods = Object.entries(expensesByMethod)
+  const rankedCategories = Object.entries(expensesByCategory)
     .sort((a, b) => b[1].total - a[1].total);
 
   const calYear = calendarDate.getFullYear();
@@ -322,8 +322,8 @@ export default function App() {
     setIsModalOpen(true);
   };
 
-  const toggleMethodExpand = (methodName) => {
-    setExpandedMethod(expandedMethod === methodName ? null : methodName);
+  const toggleCategoryExpand = (catName) => {
+    setExpandedCategory(expandedCategory === catName ? null : catName);
   };
 
   const formatCurrency = (val) =>
@@ -503,6 +503,7 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* RANKING FINANCEIRO (Maiores Gastos x Por Categoria) */}
                 <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl space-y-3">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                     <div className="flex items-center gap-2">
@@ -522,14 +523,14 @@ export default function App() {
                         Maiores Gastos
                       </button>
                       <button
-                        onClick={() => setRankingMode('methods')}
+                        onClick={() => setRankingMode('categories')}
                         className={`text-[10px] font-bold px-2 py-1 rounded-lg transition ${
-                          rankingMode === 'methods'
+                          rankingMode === 'categories'
                             ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
                             : 'text-slate-400'
                         }`}
                       >
-                        Por Modalidade
+                        Por Categoria
                       </button>
                     </div>
                   </div>
@@ -564,15 +565,15 @@ export default function App() {
                     )
                   )}
 
-                  {rankingMode === 'methods' && (
-                    rankedMethods.length > 0 ? (
+                  {rankingMode === 'categories' && (
+                    rankedCategories.length > 0 ? (
                       <div className="space-y-2 pt-1">
-                        {rankedMethods.map(([methodName, data], idx) => {
-                          const isExpanded = expandedMethod === methodName;
+                        {rankedCategories.map(([catName, data], idx) => {
+                          const isExpanded = expandedCategory === catName;
                           return (
-                            <div key={methodName} className="bg-slate-950/60 rounded-xl border border-slate-800/80 overflow-hidden transition">
+                            <div key={catName} className="bg-slate-950/60 rounded-xl border border-slate-800/80 overflow-hidden transition">
                               <button
-                                onClick={() => toggleMethodExpand(methodName)}
+                                onClick={() => toggleCategoryExpand(catName)}
                                 className="w-full flex items-center justify-between p-3 hover:bg-slate-800/30 transition text-left"
                               >
                                 <div className="flex items-center gap-2.5">
@@ -580,7 +581,7 @@ export default function App() {
                                     #{idx + 1}
                                   </span>
                                   <div>
-                                    <p className="text-xs font-bold text-slate-200">{methodName}</p>
+                                    <p className="text-xs font-bold text-slate-200">{catName}</p>
                                     <p className="text-[10px] text-slate-400">{data.items.length} lançamento(s)</p>
                                   </div>
                                 </div>
@@ -595,12 +596,12 @@ export default function App() {
 
                               {isExpanded && (
                                 <div className="p-3 bg-slate-900/60 border-t border-slate-800/80 divide-y divide-slate-800/50 space-y-2">
-                                  <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider pb-1">Itens pagos via {methodName}:</p>
+                                  <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider pb-1">Lançamentos da Categoria {catName}:</p>
                                   {data.items.map(subItem => (
                                     <div key={subItem.id} className="pt-2 flex items-center justify-between">
                                       <div>
                                         <p className="text-xs font-semibold text-slate-300">{subItem.description}</p>
-                                        <p className="text-[10px] text-slate-500">{subItem.category} • {subItem.date}</p>
+                                        <p className="text-[10px] text-slate-500">{subItem.paymentMethod || 'Geral'} • {subItem.date}</p>
                                       </div>
                                       <span className="text-xs font-bold text-slate-200">
                                         {formatCurrency(subItem.amount)}
