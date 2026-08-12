@@ -105,16 +105,45 @@ export default function App() {
     }
   }
 
+  // Exclusão Inteligente (Permite apagar apenas uma ou todas as parcelas do mesmo grupo)
   async function handleDeleteTransaction(id) {
-    if (!window.confirm('Tem certeza que deseja excluir este lançamento?')) return;
+    const targetTx = transactions.find(t => t.id === id);
+    if (!targetTx) return;
 
-    const { error } = await supabase.from('transactions').delete().eq('id', id);
+    // Extrai o nome base da descrição (ex: remove o "(5/5)" para encontrar os correspondentes)
+    const baseDescription = targetTx.description.replace(/\s\(\d+\/\d+\)$/, '');
+    const relatedParcelCount = transactions.filter(t => t.description.startsWith(baseDescription)).length;
 
-    if (error) {
-      console.error('Erro ao deletar:', error);
-      alert('Erro ao excluir lançamento.');
+    let deleteGroup = false;
+    if (relatedParcelCount > 1) {
+      deleteGroup = window.confirm(
+        `Deseja excluir TODAS as ${relatedParcelCount} parcelas registradas para "${baseDescription}"?\n\nClique em OK para apagar TODAS ou Cancelar para apagar SOMENTE esta.`
+      );
     } else {
-      setTransactions(prev => prev.filter(t => t.id !== id));
+      if (!window.confirm(`Tem certeza que deseja excluir "${targetTx.description}"?`)) return;
+    }
+
+    if (deleteGroup) {
+      const { error } = await supabase
+        .from('transactions')
+        .delete()
+        .ilike('description', `${baseDescription}%`);
+
+      if (error) {
+        console.error('Erro ao deletar grupo:', error);
+        alert('Erro ao excluir lançamentos vinculados.');
+      } else {
+        setTransactions(prev => prev.filter(t => !t.description.startsWith(baseDescription)));
+      }
+    } else {
+      const { error } = await supabase.from('transactions').delete().eq('id', id);
+
+      if (error) {
+        console.error('Erro ao deletar:', error);
+        alert('Erro ao excluir lançamento.');
+      } else {
+        setTransactions(prev => prev.filter(t => t.id !== id));
+      }
     }
   }
 
@@ -525,7 +554,10 @@ export default function App() {
                         <ChevronLeft className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => setCalendarDate(new Date())}
+                        onClick={() => {
+                          setCalendarDate(new Date());
+                          setSelectedDay(new Date().getDate());
+                        }}
                         className="text-[10px] font-bold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-1 rounded-lg"
                       >
                         Hoje
@@ -621,6 +653,7 @@ export default function App() {
                             <button
                               onClick={() => handleDeleteTransaction(item.id)}
                               className="text-slate-500 hover:text-rose-400 p-1 rounded transition"
+                              title="Excluir do banco"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
