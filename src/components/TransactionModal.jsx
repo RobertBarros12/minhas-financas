@@ -16,7 +16,6 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
 
   const amountInputRef = useRef(null);
 
-  // Preenche dados vindos de Atalhos Rápidos e foca direto no Valor
   useEffect(() => {
     if (isOpen) {
       if (initialData) {
@@ -28,7 +27,6 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
         setDescription('');
       }
 
-      // Foco automático imediato no campo de valor para uso rápido no celular
       setTimeout(() => {
         if (amountInputRef.current) {
           amountInputRef.current.focus();
@@ -99,7 +97,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
-      <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-3xl p-5 shadow-2xl space-y-4">
+      <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-3xl p-5 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto no-scrollbar">
         
         {/* Cabeçalho */}
         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
@@ -119,7 +117,6 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
 
         <form onSubmit={handleSubmit} className="space-y-3.5">
           
-          {/* Seletor Saída x Entrada (Apenas em Lançamento Normal) */}
           {!initialData && (
             <div className="grid grid-cols-2 gap-2 p-1 bg-slate-950 rounded-2xl border border-slate-800">
               <button
@@ -143,7 +140,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
             </div>
           )}
 
-          {/* Campo de Valor R$ (Foco Automático) */}
+          {/* Digite o Valor */}
           <div className="space-y-1">
             <label className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider">Digite Apenas o Valor R$</label>
             <input
@@ -159,13 +156,13 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
             />
           </div>
 
-          {/* Descrição (Opcional se for Atalho) */}
+          {/* Descrição */}
           {!initialData && (
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Descrição</label>
               <input
                 type="text"
-                placeholder="Ex: Mercado, Uber, Aluguel"
+                placeholder="Ex: Netflix, Mercado, Uber, Aluguel"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-2.5 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 transition"
@@ -174,7 +171,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
             </div>
           )}
 
-          {/* Configurações Adicionais em Lançamento Normal */}
+          {/* Forma de Pagamento + Lista Expandida de Categorias */}
           {!initialData && (
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
@@ -214,28 +211,69 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
                       <optgroup label="🏠 Moradia & Contas Fixas">
                         <option value="Moradia & Contas Fixas">Moradia (Aluguel, Condomínio)</option>
                         <option value="Contas de Consumo">Contas (Luz, Água, Internet, Gás)</option>
+                        <option value="Impostos & Taxas">Impostos (IPTU, Taxas)</option>
                       </optgroup>
+
+                      <optgroup label="📺 Streaming, Assinaturas & Lazer">
+                        <option value="Assinaturas & Serviços Recorrentes">Streamings (Netflix, Spotify, Prime)</option>
+                        <option value="Serviços Digitais & Software">Serviços Digitais & IA (ChatGPT, Cloud)</option>
+                        <option value="Lazer & Entretenimento">Lazer, Cinema & Viagens</option>
+                        <option value="Academia & Esportes">Academia & Esportes</option>
+                      </optgroup>
+
                       <optgroup label="🛒 Alimentação">
                         <option value="Supermercado & Feira">Supermercado & Feira</option>
-                        <option value="Restaurantes & iFood">Restaurantes & iFood</option>
+                        <option value="Restaurantes & iFood">Restaurantes, iFood & Bares</option>
                       </optgroup>
+
                       <optgroup label="🚗 Transporte & Veículo">
                         <option value="Uber / Transporte Público">Uber / Transporte Público</option>
                         <option value="Combustível & Manutenção">Combustível & Manutenção Carro/Moto</option>
+                        <option value="IPVA, Seguro & Pedágio">IPVA, Seguro & Pedágio</option>
                       </optgroup>
+
                       <optgroup label="🛍️ Compras & Pessoal">
-                        <option value="Vestuário, Roupas & Compras">Vestuário, Roupas & Compras</option>
-                        <option value="Saúde & Farmácia">Saúde & Farmácia</option>
+                        <option value="Vestuário, Roupas & Compras">Vestuário, Roupas & Calçados</option>
+                        <option value="Cuidados Pessoais & Beleza">Barbearia, Salão & Cosméticos</option>
+                        <option value="Eletrônicos & Casa">Eletrônicos & Utensílios</option>
+                      </optgroup>
+
+                      <optgroup label="💊 Saúde & Família">
+                        <option value="Saúde & Farmácia">Saúde, Farmácia & Consultas</option>
+                        <option value="Pets & Veterinário">Pets, Ração & Veterinário</option>
+                        <option value="Educação & Cursos">Educação, Livros & Cursos</option>
+                      </optgroup>
+
+                      <optgroup label="💳 Dívidas & Imprevistos">
+                        <option value="Financiamentos & Empréstimos">Financiamentos & Empréstimos</option>
+                        <option value="Gastos Aleatórios & Imprevistos">Gastos Aleatórios & Imprevistos</option>
                       </optgroup>
                     </>
                   ) : (
                     <>
                       <option value="Salário / Prolabore">Salário / Prolabore</option>
                       <option value="Pix Recebido">Pix Recebido</option>
+                      <option value="Vendas & Serviços">Vendas & Serviços</option>
+                      <option value="Rendimentos & Outros">Rendimentos & Dividendos</option>
                     </>
                   )}
                 </select>
               </div>
+            </div>
+          )}
+
+          {/* Marcar como Assinatura Mensal */}
+          {type === 'expense' && (
+            <div className="p-3 bg-slate-950 rounded-2xl border border-purple-500/30 flex items-center justify-between">
+              <span className="text-xs font-bold text-purple-400 flex items-center gap-1.5">
+                <RefreshCw className="w-4 h-4" /> Assinatura Recorrente (Mensal)?
+              </span>
+              <input
+                type="checkbox"
+                checked={isRecurring}
+                onChange={(e) => setIsRecurring(e.target.checked)}
+                className="w-4 h-4 accent-purple-500 rounded cursor-pointer"
+              />
             </div>
           )}
 
@@ -271,7 +309,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
             type="submit"
             className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black py-3.5 rounded-2xl text-xs shadow-lg shadow-cyan-500/25 active:scale-95 transition tracking-wider uppercase"
           >
-            Confirmar Lançamento Rápido
+            Confirmar Lançamento
           </button>
         </form>
       </div>
