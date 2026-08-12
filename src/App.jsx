@@ -5,9 +5,10 @@ import TransactionModal from './components/TransactionModal';
 import Bills from './components/Bills';
 import QuickShortcuts from './components/QuickShortcuts';
 import { 
-  Plus, LayoutDashboard, CreditCard, BarChart2, Calendar, 
+  Plus, LayoutDashboard, CreditCard, BarChart2, Calendar as CalendarIcon, 
   CheckCircle2, Clock, Trophy, Flame, Trash2, ChevronDown, 
-  ChevronUp, ShieldCheck, AlertTriangle, RefreshCw, Zap, TrendingUp, TrendingDown 
+  ChevronUp, ShieldCheck, AlertTriangle, RefreshCw, Zap, TrendingUp, TrendingDown,
+  ChevronLeft, ChevronRight, AlertCircle
 } from 'lucide-react';
 
 export default function App() {
@@ -17,8 +18,12 @@ export default function App() {
   const [quickData, setQuickData] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Controle de alternância do Ranking e gavetas sanfona
-  const [rankingMode, setRankingMode] = useState('items'); // 'items' ou 'methods'
+  // Estados da Agenda Interativa
+  const [calendarDate, setCalendarDate] = useState(new Date());
+  const [selectedDay, setSelectedDay] = useState(new Date().getDate());
+
+  // Controle de alternância do Ranking
+  const [rankingMode, setRankingMode] = useState('items');
   const [expandedMethod, setExpandedMethod] = useState(null);
 
   const categoryColors = {
@@ -33,6 +38,7 @@ export default function App() {
     'Educação & Cursos': 'from-amber-500 to-yellow-500',
     'Lazer & Entretenimento': 'from-pink-500 to-rose-500',
     'Financiamentos & Empréstimos': 'from-rose-600 to-red-700',
+    'Assinaturas & Serviços Recorrentes': 'from-purple-600 to-violet-600',
     'Gastos Aleatórios & Imprevistos': 'from-slate-400 to-slate-600',
   };
 
@@ -118,11 +124,9 @@ export default function App() {
   const currentMonthNum = now.getMonth() + 1;
   const currentMonthYear = `${currentYear}-${String(currentMonthNum).padStart(2, '0')}`;
 
-  // Mês Anterior para o Comparativo
   const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const prevMonthYear = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
 
-  // Transações do Mês Atual e do Mês Anterior
   const currentMonthTransactions = transactions.filter(t => t.date && t.date.startsWith(currentMonthYear));
   const prevMonthTransactions = transactions.filter(t => t.date && t.date.startsWith(prevMonthYear));
 
@@ -141,7 +145,6 @@ export default function App() {
 
   const currentBalance = totalIncome - totalExpensePaid;
 
-  // Total do Mês Anterior para Comparativo
   const prevTotalExpensePaid = prevMonthTransactions
     .filter(t => t.type === 'expense' && t.status === 'paid')
     .reduce((acc, t) => acc + Number(t.amount || 0), 0);
@@ -150,29 +153,26 @@ export default function App() {
     ? Math.round(((totalExpensePaid - prevTotalExpensePaid) / prevTotalExpensePaid) * 100) 
     : 0;
 
-  // 1. CÁLCULO DO SCORE DE SAÚDE FINANCEIRA (0 a 100)
+  // Score de Saúde
   const calculateScore = () => {
     if (totalIncome === 0 && totalExpensePaid === 0) return 100;
     if (totalIncome === 0) return 30;
-    
     const ratio = totalExpensePaid / totalIncome;
     let baseScore = 100 - Math.round(ratio * 70);
-
     if (totalPendingExpense > 0) baseScore -= 10;
     return Math.max(10, Math.min(100, baseScore));
   };
 
   const healthScore = calculateScore();
 
-  // 2. DETECÇÃO DE RALOS INVISÍVEIS (Pequenos gastos repetidos < R$ 40)
+  // Ralos Invisíveis e Assinaturas
   const smallExpenses = currentMonthTransactions.filter(
     t => t.type === 'expense' && Number(t.amount || 0) <= 40
   );
   const totalSmallExpenses = smallExpenses.reduce((acc, t) => acc + Number(t.amount || 0), 0);
 
-  // 3. RASTREADOR DE ASSINATURAS E SERVIÇOS RECORRENTES
   const subscriptions = currentMonthTransactions.filter(
-    t => t.isRecurring || t.category === 'Contas de Consumo' || t.description.toLowerCase().includes('netflix') || t.description.toLowerCase().includes('spotify')
+    t => t.isRecurring || t.category === 'Assinaturas & Serviços Recorrentes'
   );
   const totalSubscriptionsMonthly = subscriptions.reduce((acc, t) => acc + Number(t.amount || 0), 0);
 
@@ -206,6 +206,24 @@ export default function App() {
 
   const needsRatio = totalIncome > 0 ? Math.round((needsExpenses / totalIncome) * 100) : 0;
   const wantsRatio = totalIncome > 0 ? Math.round((wantsExpenses / totalIncome) * 100) : 0;
+
+  // Lógica de Geração do Calendário
+  const calYear = calendarDate.getFullYear();
+  const calMonth = calendarDate.getMonth();
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const firstDayIndex = new Date(calYear, calMonth, 1).getDay();
+
+  const monthNames = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+  ];
+
+  const calMonthYearStr = `${calYear}-${String(calMonth + 1).padStart(2, '0')}`;
+  const calMonthTransactions = transactions.filter(t => t.date && t.date.startsWith(calMonthYearStr));
+
+  // Itens do Dia Selecionado na Agenda
+  const selectedDayStr = `${calMonthYearStr}-${String(selectedDay).padStart(2, '0')}`;
+  const selectedDayTransactions = transactions.filter(t => t.date === selectedDayStr);
 
   const handleOpenQuickModal = (data) => {
     setQuickData(data);
@@ -316,11 +334,9 @@ export default function App() {
               />
             )}
 
-            {/* ABA 3: ANÁLISE ULTRA-TECNOLÓGICA */}
+            {/* ABA 3: ANÁLISE */}
             {activeTab === 'analise' && (
               <div className="space-y-4">
-                
-                {/* 1. SCORE DE SAÚDE FINANCEIRA */}
                 <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl flex items-center justify-between">
                   <div className="space-y-1">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Score de Saúde Financeira</span>
@@ -338,33 +354,16 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Anel de Progresso Circular */}
                   <div className="relative w-14 h-14 flex items-center justify-center">
                     <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                      <path
-                        className="text-slate-950"
-                        strokeWidth="3.5"
-                        stroke="currentColor"
-                        fill="none"
-                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                      />
-                      <path
-                        className={healthScore >= 70 ? 'text-cyan-400' : 'text-amber-400'}
-                        strokeDasharray={`${healthScore}, 100`}
-                        strokeWidth="3.5"
-                        strokeLinecap="round"
-                        stroke="currentColor"
-                        fill="none"
-                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                      />
+                      <path className="text-slate-950" strokeWidth="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                      <path className={healthScore >= 70 ? 'text-cyan-400' : 'text-amber-400'} strokeDasharray={`${healthScore}, 100`} strokeWidth="3.5" strokeLinecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
                     </svg>
                     <span className="absolute text-[11px] font-black text-slate-200">{healthScore}%</span>
                   </div>
                 </div>
 
-                {/* 2. CARD DE RALOS INVISÍVEIS & ASSINATURAS */}
                 <div className="grid grid-cols-2 gap-3">
-                  {/* Pequenos Gastos */}
                   <div className="p-3.5 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl space-y-1">
                     <div className="flex items-center gap-1.5 text-rose-400">
                       <Zap className="w-4 h-4" />
@@ -374,7 +373,6 @@ export default function App() {
                     <p className="text-[9px] text-slate-400">{smallExpenses.length} compras ≤ R$ 40</p>
                   </div>
 
-                  {/* Assinaturas & Recorrentes */}
                   <div className="p-3.5 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl space-y-1">
                     <div className="flex items-center gap-1.5 text-purple-400">
                       <RefreshCw className="w-4 h-4" />
@@ -385,7 +383,7 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* 3. RANKING FINANCEIRO INTERATIVO */}
+                {/* Ranking */}
                 <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl space-y-3">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                     <div className="flex items-center gap-2">
@@ -417,7 +415,6 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Modo 1: Maiores Gastos */}
                   {rankingMode === 'items' && (
                     topExpensesRanking.length > 0 ? (
                       <div className="space-y-2 pt-1">
@@ -448,7 +445,6 @@ export default function App() {
                     )
                   )}
 
-                  {/* Modo 2: Por Modalidade */}
                   {rankingMode === 'methods' && (
                     rankedMethods.length > 0 ? (
                       <div className="space-y-2 pt-1">
@@ -466,7 +462,7 @@ export default function App() {
                                   </span>
                                   <div>
                                     <p className="text-xs font-bold text-slate-200">{methodName}</p>
-                                    <p className="text-[10px] text-slate-400">{data.items.length} lançamento(s) • Clique para ver</p>
+                                    <p className="text-[10px] text-slate-400">{data.items.length} lançamento(s)</p>
                                   </div>
                                 </div>
 
@@ -503,70 +499,110 @@ export default function App() {
                     )
                   )}
                 </div>
-
-                {/* 4. COMPARATIVO COM O MÊS ANTERIOR */}
-                <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Comparativo de Gastos</span>
-                    <p className="text-xs font-semibold text-slate-200">Vs. Mês Anterior ({formatCurrency(prevTotalExpensePaid)})</p>
-                  </div>
-                  <div className={`px-3 py-1 rounded-xl border flex items-center gap-1 font-extrabold text-xs ${
-                    expenseDiffPercent <= 0
-                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                      : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
-                  }`}>
-                    {expenseDiffPercent <= 0 ? <TrendingDown className="w-3.5 h-3.5" /> : <TrendingUp className="w-3.5 h-3.5" />}
-                    <span>{expenseDiffPercent > 0 ? `+${expenseDiffPercent}%` : `${expenseDiffPercent}%`}</span>
-                  </div>
-                </div>
-
-                {/* EQUILÍBRIO 50/30/20 */}
-                <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl space-y-3">
-                  <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
-                    <Flame className="w-5 h-5 text-cyan-400" />
-                    <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider">Equilíbrio Financeiro (50/30/20)</h3>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-xs font-semibold">
-                        <span className="text-slate-300">Necessidades Básicas (Ideal: 50%)</span>
-                        <span className="text-cyan-400 font-bold">{needsRatio}%</span>
-                      </div>
-                      <div className="w-full h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
-                        <div className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full" style={{ width: `${Math.min(needsRatio, 100)}%` }} />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-xs font-semibold">
-                        <span className="text-slate-300">Desejos & Lazer (Ideal: 30%)</span>
-                        <span className="text-pink-400 font-bold">{wantsRatio}%</span>
-                      </div>
-                      <div className="w-full h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
-                        <div className="h-full bg-gradient-to-r from-pink-500 to-rose-500 rounded-full" style={{ width: `${Math.min(wantsRatio, 100)}%` }} />
-                      </div>
-                    </div>
-                  </div>
-                </div>
               </div>
             )}
 
-            {/* ABA 4: AGENDA */}
+            {/* ABA 4: AGENDA INTERATIVA EM CALENDÁRIO */}
             {activeTab === 'agenda' && (
               <div className="space-y-4">
-                <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl space-y-3 shadow-xl">
+                
+                {/* 1. CALENDÁRIO MENSAL GRID */}
+                <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl space-y-3">
+                  
+                  {/* Cabeçalho do Calendário com Navegação */}
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                     <div className="flex items-center gap-2">
-                      <Calendar className="w-5 h-5 text-cyan-400" />
-                      <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider">Cronograma do Mês</h3>
+                      <CalendarIcon className="w-5 h-5 text-cyan-400" />
+                      <h3 className="text-xs font-extrabold text-slate-100 uppercase tracking-wider">
+                        {monthNames[calMonth]} {calYear}
+                      </h3>
                     </div>
-                    <span className="text-[10px] text-slate-400">{currentMonthTransactions.length} compromissos</span>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setCalendarDate(new Date(calYear, calMonth - 1, 1))}
+                        className="p-1.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 hover:text-slate-100 transition"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setCalendarDate(new Date())}
+                        className="text-[10px] font-bold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-1 rounded-lg"
+                      >
+                        Hoje
+                      </button>
+                      <button
+                        onClick={() => setCalendarDate(new Date(calYear, calMonth + 1, 1))}
+                        className="p-1.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 hover:text-slate-100 transition"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Dias da Semana */}
+                  <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-slate-500 uppercase">
+                    <span>Dom</span><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span>
+                  </div>
+
+                  {/* Grid de Dias do Mês */}
+                  <div className="grid grid-cols-7 gap-1 text-center">
+                    {/* Espaços vazios do início do mês */}
+                    {Array.from({ length: firstDayIndex }).map((_, i) => (
+                      <div key={`empty-${i}`} className="h-9 rounded-xl bg-slate-950/20" />
+                    ))}
+
+                    {/* Dias do Mês */}
+                    {Array.from({ length: daysInMonth }).map((_, i) => {
+                      const dayNum = i + 1;
+                      const dayStr = `${calMonthYearStr}-${String(dayNum).padStart(2, '0')}`;
+                      
+                      const dayTxs = transactions.filter(t => t.date === dayStr);
+                      const hasPending = dayTxs.some(t => t.type === 'expense' && t.status === 'pending');
+                      const hasPaidOnly = dayTxs.length > 0 && !hasPending;
+                      
+                      const isSelected = selectedDay === dayNum;
+                      const isToday = now.getDate() === dayNum && now.getMonth() === calMonth && now.getFullYear() === calYear;
+
+                      return (
+                        <button
+                          key={dayNum}
+                          onClick={() => setSelectedDay(dayNum)}
+                          className={`relative h-9 rounded-xl flex flex-col items-center justify-center font-bold text-xs transition ${
+                            isSelected
+                              ? 'bg-cyan-500 text-slate-950 font-black shadow-md shadow-cyan-500/30 ring-2 ring-cyan-400'
+                              : isToday
+                              ? 'bg-slate-800 text-cyan-400 border border-cyan-500/40'
+                              : 'bg-slate-950/60 text-slate-300 hover:bg-slate-800/60'
+                          }`}
+                        >
+                          <span>{dayNum}</span>
+
+                          {/* Indicadores Visuais de Vencimento */}
+                          {hasPending && (
+                            <span className="absolute bottom-1 w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse shadow-sm shadow-rose-500/80" />
+                          )}
+                          {hasPaidOnly && (
+                            <span className="absolute bottom-1 w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 2. COMPROMISSOS DO DIA SELECIONADO */}
+                <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl space-y-3 shadow-xl">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider">
+                      Agenda de {String(selectedDay).padStart(2, '0')} de {monthNames[calMonth]}
+                    </h3>
+                    <span className="text-[10px] text-slate-400">{selectedDayTransactions.length} compromisso(s)</span>
                   </div>
 
                   <div className="divide-y divide-slate-800/60">
-                    {currentMonthTransactions.length > 0 ? (
-                      currentMonthTransactions.map(item => (
+                    {selectedDayTransactions.length > 0 ? (
+                      selectedDayTransactions.map(item => (
                         <div key={item.id} className="py-2.5 flex items-center justify-between">
                           <div className="flex items-center gap-2.5">
                             {item.status === 'paid' ? (
@@ -576,7 +612,7 @@ export default function App() {
                             )}
                             <div>
                               <p className="text-xs font-semibold text-slate-200">{item.description}</p>
-                              <p className="text-[10px] text-slate-400">Vencimento: {item.date}</p>
+                              <p className="text-[10px] text-slate-400">{item.category} • {item.paymentMethod}</p>
                             </div>
                           </div>
                           
@@ -594,7 +630,9 @@ export default function App() {
                         </div>
                       ))
                     ) : (
-                      <p className="text-xs text-slate-500 text-center py-4">Nenhum compromisso neste mês.</p>
+                      <p className="text-xs text-slate-500 text-center py-6">
+                        Nenhuma conta ou vencimento agendado para o dia {selectedDay}.
+                      </p>
                     )}
                   </div>
                 </div>
@@ -617,7 +655,7 @@ export default function App() {
             { id: 'inicio', label: 'Início', icon: LayoutDashboard },
             { id: 'contas', label: 'Contas', icon: CreditCard },
             { id: 'analise', label: 'Análise', icon: BarChart2 },
-            { id: 'agenda', label: 'Agenda', icon: Calendar },
+            { id: 'agenda', label: 'Agenda', icon: CalendarIcon },
           ].map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
