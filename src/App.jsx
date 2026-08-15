@@ -12,7 +12,7 @@ import {
   ChevronUp, ShieldCheck, AlertTriangle, RefreshCw, Zap,
   ChevronLeft, ChevronRight, PiggyBank, TrendingUp,
   ShoppingBag, Utensils, Film, Sparkles, Home, Droplets,
-  Car, Scissors, HeartPulse, Dog, GraduationCap, DollarSign, Package
+  Car, Scissors, HeartPulse, Dog, GraduationCap, DollarSign, ArrowDownLeft
 } from 'lucide-react';
 
 export default function App() {
@@ -358,10 +358,10 @@ export default function App() {
     const desc = description.toLowerCase();
     const cat = categoryName.toLowerCase();
 
-    if (desc.includes('moto') || desc.includes('carro') || cat.includes('transporte') || cat.includes('veículo')) return Car;
+    if (desc.includes('moto') || desc.includes('carro') || cat.includes('transporte') || cat.includes('veículo') || desc.includes('uber')) return Car;
     if (desc.includes('show') || desc.includes('cinema') || desc.includes('voo') || desc.includes('viagem') || cat.includes('lazer')) return Film;
     if (desc.includes('mercado') || cat.includes('supermercado')) return ShoppingBag;
-    if (desc.includes('ifood') || desc.includes('restaurante') || cat.includes('alimentação')) return Utensils;
+    if (desc.includes('ifood') || desc.includes('restaurante') || cat.includes('alimentação') || desc.includes('lanche')) return Utensils;
     if (desc.includes('corte') || desc.includes('cabelo') || cat.includes('beleza') || cat.includes('pessoal')) return Scissors;
     if (cat.includes('moradia') || cat.includes('aluguel')) return Home;
     if (cat.includes('consumo') || desc.includes('luz') || desc.includes('água') || desc.includes('gas') || desc.includes('gás') || desc.includes('gasolina') || desc.includes('posto')) return Droplets;
@@ -387,7 +387,6 @@ export default function App() {
   const selectedDayStr = `${calMonthYearStr}-${String(selectedDay).padStart(2, '0')}`;
   const selectedDayTransactions = transactions.filter(t => t.date === selectedDayStr);
 
-  // Totais do dia selecionado
   const selectedDayPaidTotal = selectedDayTransactions
     .filter(t => t.type === 'expense' && t.status === 'paid')
     .reduce((acc, t) => acc + Number(t.amount || 0), 0);
@@ -452,7 +451,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* Conteúdo Principal */}
+      {/* Conteúdo Principal Otimizado para Mobile */}
       <main className="max-w-lg mx-auto p-4 space-y-4">
         {loading ? (
           <div className="p-12 text-center text-xs text-slate-500 animate-pulse">
@@ -460,7 +459,7 @@ export default function App() {
           </div>
         ) : (
           <>
-            {/* ABA 1: INÍCIO */}
+            {/* ABA 1: INÍCIO COM CARDS MODERNOS */}
             {activeTab === 'inicio' && (
               <div className="space-y-4">
                 <Summary
@@ -473,36 +472,59 @@ export default function App() {
 
                 <QuickShortcuts onSelectShortcut={handleOpenQuickModal} />
 
-                <div className="bg-slate-900/80 rounded-2xl border border-slate-800 overflow-hidden shadow-xl backdrop-blur-sm">
-                  <div className="p-3 border-b border-slate-800/80 flex items-center justify-between">
-                    <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Extrato de {selectedMonthYear}</h3>
-                    <span className="text-[10px] text-slate-400">{currentMonthTransactions.length} item(ns)</span>
+                {/* Extrato do Mês Moderno */}
+                <div className="bg-slate-900/80 rounded-3xl border border-slate-800 overflow-hidden shadow-xl backdrop-blur-sm space-y-2 p-3">
+                  <div className="px-1 py-1 flex items-center justify-between border-b border-slate-800/80 pb-2">
+                    <h3 className="text-xs font-extrabold text-slate-200 uppercase tracking-wider">Extrato de {selectedMonthYear}</h3>
+                    <span className="text-[10px] text-slate-400 font-semibold">{currentMonthTransactions.length} lançamento(s)</span>
                   </div>
 
-                  <div className="divide-y divide-slate-800/60">
+                  <div className="space-y-2 pt-1">
                     {currentMonthTransactions.length > 0 ? (
-                      currentMonthTransactions.map(item => (
-                        <div key={item.id} className="p-3.5 flex items-center justify-between hover:bg-slate-800/40 transition">
-                          <div className="space-y-0.5">
-                            <p className="text-xs font-semibold text-slate-200">{item.description}</p>
-                            <p className="text-[10px] text-slate-400">{item.category} • {item.date}</p>
-                          </div>
-                          
-                          <div className="flex items-center gap-3">
-                            <span className={`text-xs font-bold ${item.type === 'income' ? 'text-emerald-400' : 'text-slate-200'}`}>
-                              {item.type === 'income' ? '+' : '-'} {formatCurrency(item.amount)}
-                            </span>
+                      currentMonthTransactions.map(item => {
+                        const IconComponent = getCategoryIcon(item.category, item.description);
+                        const isIncome = item.type === 'income';
 
-                            <button
-                              onClick={() => handleDeleteTransaction(item.id)}
-                              className="text-slate-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-500/10 transition"
-                              title="Excluir lançamento"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                        return (
+                          <div 
+                            key={item.id} 
+                            className="p-3 bg-slate-950/60 rounded-2xl border border-slate-800/80 flex items-center justify-between hover:bg-slate-800/30 transition"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                                isIncome 
+                                  ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' 
+                                  : 'bg-slate-800/60 border border-slate-700/50 text-cyan-400'
+                              }`}>
+                                {isIncome ? <ArrowDownLeft className="w-4 h-4" /> : <IconComponent className="w-4 h-4" />}
+                              </div>
+
+                              <div>
+                                <p className="text-xs font-semibold text-slate-200 leading-tight">{item.description}</p>
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  <span className="text-[9px] text-slate-400">{item.date}</span>
+                                  <span className="text-[9px] text-slate-500">•</span>
+                                  <span className="text-[9px] text-cyan-400/90 font-medium">{item.paymentMethod || 'Geral'}</span>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-2.5">
+                              <span className={`text-xs font-black ${isIncome ? 'text-emerald-400' : 'text-slate-200'}`}>
+                                {isIncome ? '+' : '-'} {formatCurrency(item.amount)}
+                              </span>
+
+                              <button
+                                onClick={() => handleDeleteTransaction(item.id)}
+                                className="text-slate-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-500/10 transition"
+                                title="Excluir lançamento"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      ))
+                        );
+                      })
                     ) : (
                       <div className="p-6 text-center text-xs text-slate-500">
                         Nenhum lançamento registrado para este mês.
@@ -592,7 +614,7 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* RANKING FINANCEIRO DE IMPACTO */}
+                {/* RANKING FINANCEIRO */}
                 <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl space-y-3">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                     <div className="flex items-center gap-2">
@@ -763,11 +785,9 @@ export default function App() {
               </div>
             )}
 
-            {/* ABA 6: AGENDA INTELIGENTE E MODERNA */}
+            {/* ABA 6: AGENDA */}
             {activeTab === 'agenda' && (
               <div className="space-y-4">
-                
-                {/* Calendário Mensal Moderno */}
                 <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl space-y-3">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                     <div className="flex items-center gap-2">
@@ -789,7 +809,7 @@ export default function App() {
                           setCalendarDate(new Date());
                           setSelectedDay(new Date().getDate());
                         }}
-                        className="text-[10px] font-bold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-1 rounded-lg hover:bg-cyan-500/20 transition"
+                        className="text-[10px] font-bold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-1 rounded-lg"
                       >
                         Hoje
                       </button>
@@ -840,7 +860,6 @@ export default function App() {
                         >
                           <span>{dayNum}</span>
                           
-                          {/* Indicadores Coloridos em Linha */}
                           <div className="flex items-center gap-0.5 mt-0.5">
                             {hasPending && (
                               <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-slate-950' : 'bg-rose-500 animate-pulse'}`} />
@@ -858,10 +877,7 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Detalhes do Dia com Mini-Dashboard e Ações */}
                 <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl space-y-3.5 shadow-xl">
-                  
-                  {/* Cabeçalho da Lista do Dia */}
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
                     <div>
                       <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider">
@@ -879,7 +895,6 @@ export default function App() {
                     </button>
                   </div>
 
-                  {/* Mini-Dashboard de Gastos e Pendências do Dia */}
                   {selectedDayTransactions.length > 0 && (
                     <div className="grid grid-cols-2 gap-2 bg-slate-950/70 p-2.5 rounded-xl border border-slate-800/80">
                       <div>
@@ -893,7 +908,6 @@ export default function App() {
                     </div>
                   )}
 
-                  {/* Lista de Compromissos com Cards Modernos */}
                   <div className="space-y-2">
                     {selectedDayTransactions.length > 0 ? (
                       selectedDayTransactions.map(item => {
@@ -980,7 +994,7 @@ export default function App() {
         initialData={quickData}
       />
 
-      {/* Menu Inferior Completo */}
+      {/* Menu Inferior Completo Otimizado para o Polegar */}
       <nav className="fixed bottom-0 left-0 right-0 bg-slate-950/90 backdrop-blur-lg border-t border-slate-800/80 z-40 shadow-2xl">
         <div className="max-w-lg mx-auto flex items-center justify-around p-1.5">
           {[
