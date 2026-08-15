@@ -324,23 +324,32 @@ export default function App() {
     }
   }
 
-  // Transações Filtradas por Mês/Ano
+  // Transações do Mês Selecionado
   const currentMonthTransactions = transactions.filter(
     t => t.date && t.date.startsWith(selectedMonthYear)
   );
 
-  // Filtro de 7 Dias para a Análise Semanal
-  const today = new Date();
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(today.getDate() - 7);
-  const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0];
+  // Filtro Estrito para os 7 Dias Reais (Sem pegar parcelas futuras e apenas gastos pagos)
+  const todayObj = new Date();
+  const todayStr = todayObj.toISOString().split('T')[0];
 
-  const fourteenDaysAgo = new Date();
-  fourteenDaysAgo.setDate(today.getDate() - 14);
-  const fourteenDaysAgoStr = fourteenDaysAgo.toISOString().split('T')[0];
+  const sevenDaysAgoObj = new Date();
+  sevenDaysAgoObj.setDate(todayObj.getDate() - 7);
+  const sevenDaysAgoStr = sevenDaysAgoObj.toISOString().split('T')[0];
 
-  const last7DaysTransactions = transactions.filter(t => t.date >= sevenDaysAgoStr);
-  const prev7DaysTransactions = transactions.filter(t => t.date >= fourteenDaysAgoStr && t.date < sevenDaysAgoStr);
+  const fourteenDaysAgoObj = new Date();
+  fourteenDaysAgoObj.setDate(todayObj.getDate() - 14);
+  const fourteenDaysAgoStr = fourteenDaysAgoObj.toISOString().split('T')[0];
+
+  // Semana Atual: Entre 7 dias atrás e Hoje (Apenas gastos efetivamente pagos)
+  const last7DaysTransactions = transactions.filter(
+    t => t.type === 'expense' && t.status === 'paid' && t.date >= sevenDaysAgoStr && t.date <= todayStr
+  );
+
+  // Semana Anterior: Entre 14 dias atrás e 7 dias atrás (Apenas gastos efetivamente pagos)
+  const prev7DaysTransactions = transactions.filter(
+    t => t.type === 'expense' && t.status === 'paid' && t.date >= fourteenDaysAgoStr && t.date < sevenDaysAgoStr
+  );
 
   const activeAnalysisTransactions = analysisPeriod === 'week' ? last7DaysTransactions : currentMonthTransactions;
 
@@ -370,7 +379,7 @@ export default function App() {
   const healthScore = calculateScore();
 
   const smallExpenses = activeAnalysisTransactions.filter(
-    t => t.type === 'expense' && Number(t.amount || 0) <= 40
+    t => t.type === 'expense' && t.status === 'paid' && Number(t.amount || 0) <= 40
   );
   const totalSmallExpenses = smallExpenses.reduce((acc, t) => acc + Number(t.amount || 0), 0);
 
@@ -379,15 +388,9 @@ export default function App() {
   );
   const totalSubscriptionsMonthly = subscriptions.reduce((acc, t) => acc + Number(t.amount || 0), 0);
 
-  // Cálculos do Digest Semanal (Semana Atual vs Anterior)
-  const currentWeekSpent = last7DaysTransactions
-    .filter(t => t.type === 'expense')
-    .reduce((acc, t) => acc + Number(t.amount || 0), 0);
-
-  const prevWeekSpent = prev7DaysTransactions
-    .filter(t => t.type === 'expense')
-    .reduce((acc, t) => acc + Number(t.amount || 0), 0);
-
+  // Gastos Reais da Semana Atual vs Anterior
+  const currentWeekSpent = last7DaysTransactions.reduce((acc, t) => acc + Number(t.amount || 0), 0);
+  const prevWeekSpent = prev7DaysTransactions.reduce((acc, t) => acc + Number(t.amount || 0), 0);
   const weekDiff = currentWeekSpent - prevWeekSpent;
 
   // Filtragem e Busca do Extrato na Aba Início
@@ -404,16 +407,16 @@ export default function App() {
     return true;
   });
 
-  // Ranking de Gastos
+  // Ranking de Gastos (Apenas pagos no período ativo)
   const topExpensesRanking = [...activeAnalysisTransactions]
-    .filter(t => t.type === 'expense')
+    .filter(t => t.type === 'expense' && t.status === 'paid')
     .sort((a, b) => Number(b.amount || 0) - Number(a.amount || 0))
     .slice(0, 5);
 
   const highestSingleExpense = topExpensesRanking.length > 0 ? Number(topExpensesRanking[0].amount) : 1;
 
   const expensesByCategory = activeAnalysisTransactions
-    .filter(t => t.type === 'expense')
+    .filter(t => t.type === 'expense' && t.status === 'paid')
     .reduce((acc, t) => {
       const cat = t.category || 'Gastos Aleatórios & Imprevistos';
       if (!acc[cat]) {
@@ -770,7 +773,7 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* NOVO: Card "Diagnóstico do Especialista" (Feedback Dinâmico) */}
+                {/* Card "Diagnóstico do Especialista" (Feedback Dinâmico) */}
                 <div className="p-4 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-cyan-500/30 rounded-3xl shadow-xl space-y-3 relative overflow-hidden">
                   <div className="flex items-center gap-2 border-b border-slate-800/80 pb-2.5">
                     <div className="w-7 h-7 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
@@ -789,7 +792,7 @@ export default function App() {
                           Seu score está em <strong className="text-amber-400">{healthScore}/100 (Atenção)</strong> porque os compromissos fixos e despesas somaram a maior parte das entradas do mês.
                         </p>
                         
-                        {totalSmallExpenses > 150 && (
+                        {totalSmallExpenses > 100 && (
                           <div className="p-2.5 rounded-2xl bg-slate-950/70 border border-rose-500/20 text-[11px] text-rose-300 flex items-start gap-2">
                             <Zap className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
                             <span>
@@ -1278,9 +1281,9 @@ export default function App() {
                 <span>Veredito do DevFinanças</span>
               </div>
               <p className="text-[11px] text-slate-300 leading-relaxed">
-                {currentWeekSpent <= 300 
+                {currentWeekSpent <= 350 
                   ? 'Você manteve um ritmo de gastos exemplar nos últimos 7 dias! Continue assim para fechar o mês com folga para investir.'
-                  : 'A semana teve uma concentração maior em compras de maior impacto. Tente priorizar apenas despesas essenciais nos próximos dias para reequilibrar o ritmo mensal.'}
+                  : 'A semana teve uma concentração em despesas pontuais. Priorize apenas gastos essenciais nos próximos dias para reequilibrar o ritmo mensal.'}
               </p>
             </div>
 
