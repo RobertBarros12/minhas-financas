@@ -11,8 +11,8 @@ export default function Bills({ transactions, onToggleStatus, onDelete, selected
   const formatCurrency = (val) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(val) || 0);
 
-  // Filtra transações do mês selecionado
-  const monthTransactions = transactions.filter(
+  // Filtra apenas DESPESAS do mês selecionado
+  const monthExpenses = transactions.filter(
     t => t.type === 'expense' && t.date && t.date.startsWith(selectedMonthYear)
   );
 
@@ -25,22 +25,70 @@ export default function Bills({ transactions, onToggleStatus, onDelete, selected
     { id: 'installments', label: 'Parcelados / Carnê', icon: ShoppingBag },
   ];
 
-  // Helper de filtragem por aba
-  const filteredBills = monthTransactions.filter(item => {
-    if (activeCategory === 'all') return true;
-    if (activeCategory === 'card') {
-      return item.paymentMethod === 'Cartão de Crédito' || item.category === 'Fatura do Cartão';
-    }
-    if (activeCategory === 'subscription') {
-      return item.isRecurring || item.category === 'Assinaturas & Serviços Recorrentes' || item.description.toLowerCase().includes('spotify') || item.description.toLowerCase().includes('netflix');
-    }
-    if (activeCategory === 'financing') {
-      return item.category === 'Financiamentos & Empréstimos' || item.description.toLowerCase().includes('moto') || item.description.toLowerCase().includes('carro');
-    }
-    if (activeCategory === 'installments') {
-      return item.installments > 1 || /\(\d+\/\d+\)/.test(item.description);
-    }
-    return true;
+  // Helper para identificar tipos específicos de contas
+  const isSubscription = (item) => {
+    const desc = (item.description || '').toLowerCase();
+    const cat = (item.category || '').toLowerCase();
+    return item.isRecurring || 
+           cat.includes('assinatura') || 
+           desc.includes('spotify') || 
+           desc.includes('netflix') || 
+           desc.includes('prime') || 
+           desc.includes('youtube') || 
+           desc.includes('hbo') || 
+           desc.includes('disney') || 
+           desc.includes('academia');
+  };
+
+  const isFinancing = (item) => {
+    const desc = (item.description || '').toLowerCase();
+    const cat = (item.category || '').toLowerCase();
+    return cat.includes('financiamento') || 
+           cat.includes('empréstimo') || 
+           desc.includes('moto') || 
+           desc.includes('carro') || 
+           desc.includes('veículo') || 
+           desc.includes('imóvel') || 
+           desc.includes('casa') || 
+           desc.includes('terreno');
+  };
+
+  const isCard = (item) => {
+    const cat = (item.category || '').toLowerCase();
+    return item.paymentMethod === 'Cartão de Crédito' || cat.includes('cartão');
+  };
+
+  const isInstallment = (item) => {
+    // É parcelado MAS NÃO É financiamento
+    if (isFinancing(item)) return false;
+    const desc = item.description || '';
+    return Number(item.installments) > 1 || /\(\d+\/\d+\)/.test(desc);
+  };
+
+  // Vencimentos do Mês: Apenas contas, boletos, faturas, assinaturas, financiamentos e parcelamentos reais
+  const isRealBill = (item) => {
+    const cat = (item.category || '').toLowerCase();
+    const desc = (item.description || '').toLowerCase();
+
+    // Se for assinatura, financiamento, parcelamento ou fatura de cartão -> É CONTA
+    if (isSubscription(item) || isFinancing(item) || isInstallment(item) || isCard(item)) return true;
+
+    // Categorias tradicionais de contas e consumo
+    if (cat.includes('moradia') || cat.includes('consumo') || cat.includes('educação') || cat.includes('saúde')) return true;
+    if (desc.includes('aluguel') || desc.includes('condomínio') || desc.includes('energia') || desc.includes('luz') || desc.includes('água') || desc.includes('internet')) return true;
+
+    // Despesas pontuais (ex: Uber, iFood, Lilian, Lançamento Rápido, Aporte CDB) NÃO entram na aba de Contas
+    return false;
+  };
+
+  // Filtragem estrita por sub-aba
+  const filteredBills = monthExpenses.filter(item => {
+    if (activeCategory === 'all') return isRealBill(item);
+    if (activeCategory === 'card') return isCard(item);
+    if (activeCategory === 'subscription') return isSubscription(item);
+    if (activeCategory === 'financing') return isFinancing(item);
+    if (activeCategory === 'installments') return isInstallment(item);
+    return false;
   });
 
   const totalCategoryAmount = filteredBills.reduce((acc, t) => acc + Number(t.amount || 0), 0);
@@ -49,7 +97,6 @@ export default function Bills({ transactions, onToggleStatus, onDelete, selected
     .reduce((acc, t) => acc + Number(t.amount || 0), 0);
   const paidCategoryAmount = totalCategoryAmount - pendingCategoryAmount;
 
-  // Porcentagem de quitação
   const paidPercentage = totalCategoryAmount > 0 
     ? Math.round((paidCategoryAmount / totalCategoryAmount) * 100) 
     : 100;
@@ -59,16 +106,16 @@ export default function Bills({ transactions, onToggleStatus, onDelete, selected
     const desc = description.toLowerCase();
     const cat = category.toLowerCase();
 
-    if (desc.includes('moto') || desc.includes('carro') || cat.includes('transporte')) return Car;
-    if (desc.includes('spotify') || desc.includes('netflix') || desc.includes('prime') || cat.includes('assinatura')) return Tv;
+    if (isFinancing({ category, description })) return Car;
+    if (isSubscription({ category, description })) return Tv;
     if (desc.includes('geladeira') || desc.includes('fogão') || desc.includes('aluguel') || cat.includes('moradia')) return Home;
     if (cat.includes('saúde') || desc.includes('farmácia')) return HeartPulse;
     if (cat.includes('educação')) return GraduationCap;
-    if (cat.includes('financiamento') || cat.includes('empréstimo')) return DollarSign;
-    return Package;
+    if (isCard({ category, paymentMethod: '' })) return CreditCard;
+    return ShoppingBag;
   };
 
-  // Helper de Urgência da Data de Vencimento
+  // Helper de Status e Urgência
   const getUrgencyBadge = (dateStr, status) => {
     if (status === 'paid') {
       return { label: '✓ Pago', bg: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' };
@@ -87,7 +134,7 @@ export default function Bills({ transactions, onToggleStatus, onDelete, selected
   return (
     <div className="space-y-4">
       
-      {/* Menu de Sub-abas Otimizado para Mobile (Sem barra cinza feia) */}
+      {/* Menu de Sub-abas */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar -mx-1 px-1">
         {categories.map(cat => {
           const Icon = cat.icon;
@@ -97,10 +144,10 @@ export default function Bills({ transactions, onToggleStatus, onDelete, selected
             <button
               key={cat.id}
               onClick={() => setActiveCategory(cat.id)}
-              className={`flex items-center gap-2 px-3.5 py-2.5 rounded-2xl border text-xs font-bold whitespace-nowrap active:scale-95 transition shadow-md ${
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-2xl border text-xs font-bold whitespace-nowrap active:scale-95 transition shadow-md ${
                 isActive
-                  ? 'bg-gradient-to-r from-cyan-500 to-blue-600 border-cyan-400 text-slate-950 shadow-cyan-500/20 font-black'
-                  : 'bg-slate-900/90 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-850'
+                  ? 'bg-gradient-to-r from-cyan-500 to-blue-600 border-cyan-400 text-slate-950 font-black shadow-cyan-500/20'
+                  : 'bg-slate-900/90 border-slate-800 text-slate-400 hover:text-slate-200'
               }`}
             >
               <Icon className="w-3.5 h-3.5" />
@@ -110,7 +157,7 @@ export default function Bills({ transactions, onToggleStatus, onDelete, selected
         })}
       </div>
 
-      {/* Card Resumo da Categoria com Barra de Progresso de Quitação */}
+      {/* Card de Resumo da Sub-aba */}
       <div className="p-4 bg-gradient-to-br from-slate-900 via-slate-900/90 to-slate-950 border border-slate-800 rounded-3xl shadow-xl space-y-3">
         <div className="grid grid-cols-2 gap-2">
           <div>
@@ -126,7 +173,7 @@ export default function Bills({ transactions, onToggleStatus, onDelete, selected
           </div>
         </div>
 
-        {/* Barra de Progresso de Quitação */}
+        {/* Barra de Progresso */}
         <div className="space-y-1.5 pt-1 border-t border-slate-800/80">
           <div className="flex items-center justify-between text-[10px] font-bold">
             <span className="text-slate-400">Progresso de Quitação:</span>
@@ -148,13 +195,13 @@ export default function Bills({ transactions, onToggleStatus, onDelete, selected
         </div>
       </div>
 
-      {/* Lista de Contas com Cards Modernos */}
+      {/* Lista de Contas Filtradas Corretamente */}
       <div className="bg-slate-900/80 rounded-3xl border border-slate-800 overflow-hidden shadow-xl p-3.5 space-y-3">
         <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
           <h3 className="text-xs font-extrabold text-slate-200 uppercase tracking-wider">
             Lançamentos de {selectedMonthYear}
           </h3>
-          <span className="text-[10px] text-slate-400 font-semibold">{filteredBills.length} item(ns)</span>
+          <span className="text-[10px] text-slate-400 font-semibold">{filteredBills.length} compromisso(s)</span>
         </div>
 
         <div className="space-y-2 pt-1">
@@ -196,7 +243,6 @@ export default function Bills({ transactions, onToggleStatus, onDelete, selected
                         {formatCurrency(item.amount)}
                       </p>
 
-                      {/* Botão Interativo de Status com Toque Confortável */}
                       <button
                         onClick={() => onToggleStatus(item.id)}
                         className={`text-[9px] font-extrabold px-2 py-0.5 rounded-lg border transition active:scale-95 ${urgency.bg}`}
@@ -207,7 +253,6 @@ export default function Bills({ transactions, onToggleStatus, onDelete, selected
                     </div>
                   </div>
 
-                  {/* Ação de Excluir */}
                   <div className="flex justify-end pt-2 mt-2 border-t border-slate-800/40">
                     <button
                       onClick={() => onDelete(item.id)}
@@ -223,7 +268,7 @@ export default function Bills({ transactions, onToggleStatus, onDelete, selected
             })
           ) : (
             <div className="p-8 text-center text-xs text-slate-500">
-              Nenhuma conta encontrada nesta categoria para este mês.
+              Nenhum compromisso encontrado nesta categoria para este mês.
             </div>
           )}
         </div>
