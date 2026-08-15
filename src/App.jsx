@@ -328,7 +328,7 @@ export default function App() {
   );
   const totalSubscriptionsMonthly = subscriptions.reduce((acc, t) => acc + Number(t.amount || 0), 0);
 
-  // Maiores Gastos Individuais
+  // Ranking
   const topExpensesRanking = [...currentMonthTransactions]
     .filter(t => t.type === 'expense')
     .sort((a, b) => Number(b.amount || 0) - Number(a.amount || 0))
@@ -336,7 +336,6 @@ export default function App() {
 
   const highestSingleExpense = topExpensesRanking.length > 0 ? Number(topExpensesRanking[0].amount) : 1;
 
-  // Agrupamento por Categoria
   const expensesByCategory = currentMonthTransactions
     .filter(t => t.type === 'expense')
     .reduce((acc, t) => {
@@ -354,7 +353,7 @@ export default function App() {
 
   const highestCategoryExpense = rankedCategories.length > 0 ? rankedCategories[0][1].total : 1;
 
-  // Helper para escolher ícones dinâmicos por categoria/descrição
+  // Helper de Ícones Temáticos
   const getCategoryIcon = (categoryName = '', description = '') => {
     const desc = description.toLowerCase();
     const cat = categoryName.toLowerCase();
@@ -365,7 +364,7 @@ export default function App() {
     if (desc.includes('ifood') || desc.includes('restaurante') || cat.includes('alimentação')) return Utensils;
     if (desc.includes('corte') || desc.includes('cabelo') || cat.includes('beleza') || cat.includes('pessoal')) return Scissors;
     if (cat.includes('moradia') || cat.includes('aluguel')) return Home;
-    if (cat.includes('consumo') || desc.includes('luz') || desc.includes('água') || desc.includes('gas')) return Droplets;
+    if (cat.includes('consumo') || desc.includes('luz') || desc.includes('água') || desc.includes('gas') || desc.includes('gás') || desc.includes('gasolina') || desc.includes('posto')) return Droplets;
     if (cat.includes('saúde') || desc.includes('farmácia')) return HeartPulse;
     if (cat.includes('pet')) return Dog;
     if (cat.includes('educação')) return GraduationCap;
@@ -373,6 +372,7 @@ export default function App() {
     return Sparkles;
   };
 
+  // Cálculos do Calendário da Agenda
   const calYear = calendarDate.getFullYear();
   const calMonth = calendarDate.getMonth();
   const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
@@ -387,8 +387,26 @@ export default function App() {
   const selectedDayStr = `${calMonthYearStr}-${String(selectedDay).padStart(2, '0')}`;
   const selectedDayTransactions = transactions.filter(t => t.date === selectedDayStr);
 
+  // Totais do dia selecionado
+  const selectedDayPaidTotal = selectedDayTransactions
+    .filter(t => t.type === 'expense' && t.status === 'paid')
+    .reduce((acc, t) => acc + Number(t.amount || 0), 0);
+
+  const selectedDayPendingTotal = selectedDayTransactions
+    .filter(t => t.type === 'expense' && t.status === 'pending')
+    .reduce((acc, t) => acc + Number(t.amount || 0), 0);
+
   const handleOpenQuickModal = (data) => {
     setQuickData(data);
+    setIsModalOpen(true);
+  };
+
+  const handleScheduleForSelectedDay = () => {
+    setQuickData({
+      date: selectedDayStr,
+      description: '',
+      type: 'expense'
+    });
     setIsModalOpen(true);
   };
 
@@ -525,7 +543,7 @@ export default function App() {
               />
             )}
 
-            {/* ABA 5: ANÁLISE COM NOVO DESIGN DE RANKING */}
+            {/* ABA 5: ANÁLISE */}
             {activeTab === 'analise' && (
               <div className="space-y-4">
                 <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl flex items-center justify-between">
@@ -574,7 +592,7 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* NOVO DESIGN DO RANKING FINANCEIRO */}
+                {/* RANKING FINANCEIRO DE IMPACTO */}
                 <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl space-y-3">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                     <div className="flex items-center gap-2">
@@ -606,7 +624,6 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Visualização: Maiores Gastos com Ícones e Barras de Impacto */}
                   {rankingMode === 'items' && (
                     topExpensesRanking.length > 0 ? (
                       <div className="space-y-2.5 pt-1">
@@ -651,7 +668,6 @@ export default function App() {
                                 </div>
                               </div>
 
-                              {/* Barra de Impacto Visual */}
                               <div className="w-full bg-slate-900 h-1.5 rounded-full mt-2.5 overflow-hidden">
                                 <div 
                                   className={`h-full rounded-full transition-all duration-500 ${
@@ -669,7 +685,6 @@ export default function App() {
                     )
                   )}
 
-                  {/* Visualização: Por Categoria com Gaveta e Barra Proporcional */}
                   {rankingMode === 'categories' && (
                     rankedCategories.length > 0 ? (
                       <div className="space-y-2.5 pt-1">
@@ -748,9 +763,11 @@ export default function App() {
               </div>
             )}
 
-            {/* ABA 6: AGENDA */}
+            {/* ABA 6: AGENDA INTELIGENTE E MODERNA */}
             {activeTab === 'agenda' && (
               <div className="space-y-4">
+                
+                {/* Calendário Mensal Moderno */}
                 <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl space-y-3">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                     <div className="flex items-center gap-2">
@@ -772,7 +789,7 @@ export default function App() {
                           setCalendarDate(new Date());
                           setSelectedDay(new Date().getDate());
                         }}
-                        className="text-[10px] font-bold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-1 rounded-lg"
+                        className="text-[10px] font-bold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-1 rounded-lg hover:bg-cyan-500/20 transition"
                       >
                         Hoje
                       </button>
@@ -789,79 +806,164 @@ export default function App() {
                     <span>Dom</span><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span>
                   </div>
 
-                  <div className="grid grid-cols-7 gap-1 text-center">
+                  <div className="grid grid-cols-7 gap-1.5 text-center">
                     {Array.from({ length: firstDayIndex }).map((_, i) => (
-                      <div key={`empty-${i}`} className="h-9 rounded-xl bg-slate-950/20" />
+                      <div key={`empty-${i}`} className="h-10 rounded-xl bg-slate-950/20" />
                     ))}
 
                     {Array.from({ length: daysInMonth }).map((_, i) => {
                       const dayNum = i + 1;
                       const dayStr = `${calMonthYearStr}-${String(dayNum).padStart(2, '0')}`;
                       const dayTxs = transactions.filter(t => t.date === dayStr);
+                      
                       const hasPending = dayTxs.some(t => t.type === 'expense' && t.status === 'pending');
-                      const hasPaidOnly = dayTxs.length > 0 && !hasPending;
+                      const hasPaidExpense = dayTxs.some(t => t.type === 'expense' && t.status === 'paid');
+                      const hasIncome = dayTxs.some(t => t.type === 'income');
                       const isSelected = selectedDay === dayNum;
+
+                      const isToday = 
+                        new Date().getDate() === dayNum && 
+                        new Date().getMonth() === calMonth && 
+                        new Date().getFullYear() === calYear;
 
                       return (
                         <button
                           key={dayNum}
                           onClick={() => setSelectedDay(dayNum)}
-                          className={`relative h-9 rounded-xl flex flex-col items-center justify-center font-bold text-xs transition ${
+                          className={`relative h-10 rounded-xl flex flex-col items-center justify-center font-bold text-xs transition ${
                             isSelected
-                              ? 'bg-cyan-500 text-slate-950 font-black shadow-md shadow-cyan-500/30 ring-2 ring-cyan-400'
-                              : 'bg-slate-950/60 text-slate-300 hover:bg-slate-800/60'
+                              ? 'bg-cyan-500 text-slate-950 font-black shadow-lg shadow-cyan-500/25 ring-2 ring-cyan-400 scale-[1.03]'
+                              : isToday
+                              ? 'bg-slate-900 border border-cyan-400/80 text-cyan-300 font-black'
+                              : 'bg-slate-950/70 text-slate-300 hover:bg-slate-800/60 border border-slate-800/50'
                           }`}
                         >
                           <span>{dayNum}</span>
-                          {hasPending && <span className="absolute bottom-1 w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />}
-                          {hasPaidOnly && <span className="absolute bottom-1 w-1.5 h-1.5 rounded-full bg-emerald-400" />}
+                          
+                          {/* Indicadores Coloridos em Linha */}
+                          <div className="flex items-center gap-0.5 mt-0.5">
+                            {hasPending && (
+                              <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-slate-950' : 'bg-rose-500 animate-pulse'}`} />
+                            )}
+                            {hasPaidExpense && !hasPending && (
+                              <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-slate-950' : 'bg-emerald-400'}`} />
+                            )}
+                            {hasIncome && (
+                              <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-slate-950' : 'bg-blue-400'}`} />
+                            )}
+                          </div>
                         </button>
                       );
                     })}
                   </div>
                 </div>
 
-                <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl space-y-3 shadow-xl">
-                  <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                    <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider">
-                      Agenda de {String(selectedDay).padStart(2, '0')} de {monthNames[calMonth]}
-                    </h3>
-                    <span className="text-[10px] text-slate-400">{selectedDayTransactions.length} compromisso(s)</span>
+                {/* Detalhes do Dia com Mini-Dashboard e Ações */}
+                <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl space-y-3.5 shadow-xl">
+                  
+                  {/* Cabeçalho da Lista do Dia */}
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                    <div>
+                      <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider">
+                        {String(selectedDay).padStart(2, '0')} de {monthNames[calMonth]}
+                      </h3>
+                      <p className="text-[10px] text-slate-400">{selectedDayTransactions.length} lançamento(s)</p>
+                    </div>
+
+                    <button
+                      onClick={handleScheduleForSelectedDay}
+                      className="bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/20 px-2.5 py-1 rounded-xl text-[10px] font-bold flex items-center gap-1 transition"
+                    >
+                      <Plus className="w-3 h-3 stroke-[3]" />
+                      <span>+ Agendar</span>
+                    </button>
                   </div>
 
-                  <div className="divide-y divide-slate-800/60">
+                  {/* Mini-Dashboard de Gastos e Pendências do Dia */}
+                  {selectedDayTransactions.length > 0 && (
+                    <div className="grid grid-cols-2 gap-2 bg-slate-950/70 p-2.5 rounded-xl border border-slate-800/80">
+                      <div>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase">Pago no Dia</span>
+                        <p className="text-xs font-black text-slate-100 mt-0.5">{formatCurrency(selectedDayPaidTotal)}</p>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase">A Pagar (Pendente)</span>
+                        <p className="text-xs font-black text-amber-400 mt-0.5">{formatCurrency(selectedDayPendingTotal)}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Lista de Compromissos com Cards Modernos */}
+                  <div className="space-y-2">
                     {selectedDayTransactions.length > 0 ? (
-                      selectedDayTransactions.map(item => (
-                        <div key={item.id} className="py-2.5 flex items-center justify-between">
-                          <div className="flex items-center gap-2.5">
-                            {item.status === 'paid' ? (
-                              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                            ) : (
-                              <Clock className="w-4 h-4 text-amber-400 shrink-0" />
-                            )}
-                            <div>
-                              <p className="text-xs font-semibold text-slate-200">{item.description}</p>
-                              <p className="text-[10px] text-slate-400">{item.category} • {item.paymentMethod}</p>
+                      selectedDayTransactions.map(item => {
+                        const IconComponent = getCategoryIcon(item.category, item.description);
+                        const isIncome = item.type === 'income';
+
+                        return (
+                          <div 
+                            key={item.id} 
+                            className="p-3 bg-slate-950/60 rounded-2xl border border-slate-800/80 flex items-center justify-between hover:bg-slate-800/30 transition"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                                isIncome 
+                                  ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' 
+                                  : item.status === 'pending'
+                                  ? 'bg-amber-500/10 border border-amber-500/20 text-amber-400'
+                                  : 'bg-slate-800/60 border border-slate-700/50 text-cyan-400'
+                              }`}>
+                                <IconComponent className="w-4 h-4" />
+                              </div>
+
+                              <div>
+                                <div className="flex items-center gap-1.5">
+                                  <p className="text-xs font-semibold text-slate-200">{item.description}</p>
+                                  {!isIncome && (
+                                    <button
+                                      onClick={() => handleToggleStatus(item.id)}
+                                      className={`text-[8px] font-extrabold px-1.5 py-0.2 rounded-md border flex items-center gap-0.5 transition ${
+                                        item.status === 'paid'
+                                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                                          : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                                      }`}
+                                    >
+                                      {item.status === 'paid' ? '✓ Pago' : '⏳ Pendente'}
+                                    </button>
+                                  )}
+                                </div>
+                                <p className="text-[10px] text-slate-400 mt-0.5">{item.category} • {item.paymentMethod || 'Geral'}</p>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-2.5">
+                              <span className={`text-xs font-black ${
+                                isIncome ? 'text-emerald-400' : item.status === 'paid' ? 'text-slate-300' : 'text-amber-400'
+                              }`}>
+                                {isIncome ? '+' : '-'} {formatCurrency(item.amount)}
+                              </span>
+
+                              <button
+                                onClick={() => handleDeleteTransaction(item.id)}
+                                className="text-slate-500 hover:text-rose-400 p-1 rounded-lg hover:bg-rose-500/10 transition"
+                                title="Excluir lançamento"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
                             </div>
                           </div>
-                          
-                          <div className="flex items-center gap-3">
-                            <span className={`text-xs font-bold ${item.status === 'paid' ? 'text-slate-500 line-through' : 'text-amber-400'}`}>
-                              {formatCurrency(item.amount)}
-                            </span>
-                            <button
-                              onClick={() => handleDeleteTransaction(item.id)}
-                              className="text-slate-500 hover:text-rose-400 p-1 rounded transition"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      ))
+                        );
+                      })
                     ) : (
-                      <p className="text-xs text-slate-500 text-center py-6">
-                        Nenhum compromisso agendado para o dia {selectedDay}.
-                      </p>
+                      <div className="text-center py-6 space-y-2">
+                        <p className="text-xs text-slate-500">Nenhum compromisso para este dia.</p>
+                        <button
+                          onClick={handleScheduleForSelectedDay}
+                          className="text-[10px] font-bold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-3 py-1.5 rounded-xl hover:bg-cyan-500/20 transition"
+                        >
+                          + Agendar Lançamento
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
