@@ -12,7 +12,8 @@ import {
   ChevronUp, ShieldCheck, AlertTriangle, RefreshCw, Zap,
   ChevronLeft, ChevronRight, PiggyBank, TrendingUp,
   ShoppingBag, Utensils, Film, Sparkles, Home, Droplets,
-  Car, Scissors, HeartPulse, Dog, GraduationCap, DollarSign, ArrowDownLeft
+  Car, Scissors, HeartPulse, Dog, GraduationCap, DollarSign, ArrowDownLeft,
+  Search, X
 } from 'lucide-react';
 
 export default function App() {
@@ -29,6 +30,10 @@ export default function App() {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
+
+  // Estados de Filtro e Busca do Extrato (Início)
+  const [extratoFilter, setExtratoFilter] = useState('all'); // 'all', 'expense', 'income'
+  const [extratoSearch, setExtratoSearch] = useState('');
 
   // Estados do Calendário
   const [calendarDate, setCalendarDate] = useState(new Date());
@@ -328,6 +333,20 @@ export default function App() {
   );
   const totalSubscriptionsMonthly = subscriptions.reduce((acc, t) => acc + Number(t.amount || 0), 0);
 
+  // Filtragem e Busca do Extrato na Aba Início
+  const filteredExtratoTransactions = currentMonthTransactions.filter(item => {
+    if (extratoFilter === 'expense' && item.type !== 'expense') return false;
+    if (extratoFilter === 'income' && item.type !== 'income') return false;
+    if (extratoSearch.trim()) {
+      const term = extratoSearch.toLowerCase();
+      const matchDesc = item.description?.toLowerCase().includes(term);
+      const matchCat = item.category?.toLowerCase().includes(term);
+      const matchPayment = item.paymentMethod?.toLowerCase().includes(term);
+      if (!matchDesc && !matchCat && !matchPayment) return false;
+    }
+    return true;
+  });
+
   // Ranking
   const topExpensesRanking = [...currentMonthTransactions]
     .filter(t => t.type === 'expense')
@@ -365,7 +384,7 @@ export default function App() {
     if (desc.includes('corte') || desc.includes('cabelo') || cat.includes('beleza') || cat.includes('pessoal')) return Scissors;
     if (cat.includes('moradia') || cat.includes('aluguel')) return Home;
     if (cat.includes('consumo') || desc.includes('luz') || desc.includes('água') || desc.includes('gas') || desc.includes('gás') || desc.includes('gasolina') || desc.includes('posto')) return Droplets;
-    if (cat.includes('saúde') || desc.includes('farmácia')) return HeartPulse;
+    if (cat.includes('saúde') || desc.includes('farmácia') || desc.includes('sabonete')) return HeartPulse;
     if (cat.includes('pet')) return Dog;
     if (cat.includes('educação')) return GraduationCap;
     if (cat.includes('financiamento')) return DollarSign;
@@ -459,7 +478,7 @@ export default function App() {
           </div>
         ) : (
           <>
-            {/* ABA 1: INÍCIO COM CARDS MODERNOS */}
+            {/* ABA 1: INÍCIO COM EXTRATO FILTRÁVEL */}
             {activeTab === 'inicio' && (
               <div className="space-y-4">
                 <Summary
@@ -472,16 +491,81 @@ export default function App() {
 
                 <QuickShortcuts onSelectShortcut={handleOpenQuickModal} />
 
-                {/* Extrato do Mês Moderno */}
-                <div className="bg-slate-900/80 rounded-3xl border border-slate-800 overflow-hidden shadow-xl backdrop-blur-sm space-y-2 p-3">
-                  <div className="px-1 py-1 flex items-center justify-between border-b border-slate-800/80 pb-2">
-                    <h3 className="text-xs font-extrabold text-slate-200 uppercase tracking-wider">Extrato de {selectedMonthYear}</h3>
-                    <span className="text-[10px] text-slate-400 font-semibold">{currentMonthTransactions.length} lançamento(s)</span>
+                {/* Extrato do Mês com Filtros e Busca Rápida */}
+                <div className="bg-slate-900/80 rounded-3xl border border-slate-800 overflow-hidden shadow-xl backdrop-blur-sm p-3.5 space-y-3">
+                  
+                  {/* Cabeçalho do Extrato */}
+                  <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
+                    <div>
+                      <h3 className="text-xs font-extrabold text-slate-100 uppercase tracking-wider">
+                        Extrato de {selectedMonthYear}
+                      </h3>
+                      <p className="text-[10px] text-slate-400 font-medium mt-0.5">
+                        {filteredExtratoTransactions.length} de {currentMonthTransactions.length} lançamento(s)
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="space-y-2 pt-1">
-                    {currentMonthTransactions.length > 0 ? (
-                      currentMonthTransactions.map(item => {
+                  {/* Barra de Busca Rápida */}
+                  <div className="relative">
+                    <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      placeholder="Buscar por nome, categoria ou forma..."
+                      value={extratoSearch}
+                      onChange={(e) => setExtratoSearch(e.target.value)}
+                      className="w-full bg-slate-950/80 border border-slate-800 rounded-2xl pl-9 pr-8 py-2 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-cyan-500/80 transition"
+                    />
+                    {extratoSearch && (
+                      <button
+                        onClick={() => setExtratoSearch('')}
+                        className="absolute right-2.5 top-1/2 transform -translate-y-1/2 text-slate-500 hover:text-slate-300 p-0.5"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Pílulas de Filtro (Todos / Saídas / Entradas) */}
+                  <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-950/80 rounded-2xl border border-slate-800/80">
+                    <button
+                      onClick={() => setExtratoFilter('all')}
+                      className={`py-1.5 rounded-xl text-[11px] font-bold transition ${
+                        extratoFilter === 'all'
+                          ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 shadow-sm'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      Todos
+                    </button>
+                    <button
+                      onClick={() => setExtratoFilter('expense')}
+                      className={`py-1.5 rounded-xl text-[11px] font-bold transition flex items-center justify-center gap-1 ${
+                        extratoFilter === 'expense'
+                          ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40 shadow-sm'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                      Saídas
+                    </button>
+                    <button
+                      onClick={() => setExtratoFilter('income')}
+                      className={`py-1.5 rounded-xl text-[11px] font-bold transition flex items-center justify-center gap-1 ${
+                        extratoFilter === 'income'
+                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-sm'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                      Entradas
+                    </button>
+                  </div>
+
+                  {/* Lista de Cards do Extrato Filtrado */}
+                  <div className="space-y-2 pt-1 max-h-[480px] overflow-y-auto pr-0.5 no-scrollbar">
+                    {filteredExtratoTransactions.length > 0 ? (
+                      filteredExtratoTransactions.map(item => {
                         const IconComponent = getCategoryIcon(item.category, item.description);
                         const isIncome = item.type === 'income';
 
@@ -526,8 +610,16 @@ export default function App() {
                         );
                       })
                     ) : (
-                      <div className="p-6 text-center text-xs text-slate-500">
-                        Nenhum lançamento registrado para este mês.
+                      <div className="p-6 text-center text-xs text-slate-500 space-y-1">
+                        <p>Nenhum lançamento encontrado para os filtros selecionados.</p>
+                        {extratoSearch && (
+                          <button
+                            onClick={() => setExtratoSearch('')}
+                            className="text-[10px] font-bold text-cyan-400 underline pt-1"
+                          >
+                            Limpar busca
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -994,7 +1086,7 @@ export default function App() {
         initialData={quickData}
       />
 
-      {/* Menu Inferior Completo Otimizado para o Polegar */}
+      {/* Menu Inferior Completo */}
       <nav className="fixed bottom-0 left-0 right-0 bg-slate-950/90 backdrop-blur-lg border-t border-slate-800/80 z-40 shadow-2xl">
         <div className="max-w-lg mx-auto flex items-center justify-around p-1.5">
           {[
