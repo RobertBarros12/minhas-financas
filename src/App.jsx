@@ -13,7 +13,7 @@ import {
   ChevronLeft, ChevronRight, PiggyBank, TrendingUp,
   ShoppingBag, Utensils, Film, Sparkles, Home, Droplets,
   Car, Scissors, HeartPulse, Dog, GraduationCap, DollarSign, ArrowDownLeft,
-  Search, X
+  Search, X, Lightbulb, FileText, ArrowUpRight, Check, Target, Brain
 } from 'lucide-react';
 
 export default function App() {
@@ -34,6 +34,10 @@ export default function App() {
   // Estados de Filtro e Busca do Extrato (Início)
   const [extratoFilter, setExtratoFilter] = useState('all');
   const [extratoSearch, setExtratoSearch] = useState('');
+
+  // Estados da Aba Análise
+  const [analysisPeriod, setAnalysisPeriod] = useState('month'); // 'month' ou 'week'
+  const [isDigestModalOpen, setIsDigestModalOpen] = useState(false);
 
   // Estados do Calendário
   const [calendarDate, setCalendarDate] = useState(new Date());
@@ -251,7 +255,6 @@ export default function App() {
     } else {
       setTransactions(prev => [...txList, ...prev]);
 
-      // Se houver vínculo com caixinha, adiciona o item como concluído na caixinha
       if (vaultLinkInfo && vaultLinkInfo.vaultId) {
         const targetVault = vaults.find(v => String(v.id) === String(vaultLinkInfo.vaultId));
         if (targetVault) {
@@ -326,6 +329,21 @@ export default function App() {
     t => t.date && t.date.startsWith(selectedMonthYear)
   );
 
+  // Filtro de 7 Dias para a Análise Semanal
+  const today = new Date();
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(today.getDate() - 7);
+  const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0];
+
+  const fourteenDaysAgo = new Date();
+  fourteenDaysAgo.setDate(today.getDate() - 14);
+  const fourteenDaysAgoStr = fourteenDaysAgo.toISOString().split('T')[0];
+
+  const last7DaysTransactions = transactions.filter(t => t.date >= sevenDaysAgoStr);
+  const prev7DaysTransactions = transactions.filter(t => t.date >= fourteenDaysAgoStr && t.date < sevenDaysAgoStr);
+
+  const activeAnalysisTransactions = analysisPeriod === 'week' ? last7DaysTransactions : currentMonthTransactions;
+
   const totalIncome = currentMonthTransactions
     .filter(t => t.type === 'income' && t.status === 'paid')
     .reduce((acc, t) => acc + Number(t.amount || 0), 0);
@@ -351,7 +369,7 @@ export default function App() {
 
   const healthScore = calculateScore();
 
-  const smallExpenses = currentMonthTransactions.filter(
+  const smallExpenses = activeAnalysisTransactions.filter(
     t => t.type === 'expense' && Number(t.amount || 0) <= 40
   );
   const totalSmallExpenses = smallExpenses.reduce((acc, t) => acc + Number(t.amount || 0), 0);
@@ -360,6 +378,17 @@ export default function App() {
     t => t.isRecurring || t.category === 'Assinaturas & Serviços Recorrentes'
   );
   const totalSubscriptionsMonthly = subscriptions.reduce((acc, t) => acc + Number(t.amount || 0), 0);
+
+  // Cálculos do Digest Semanal (Semana Atual vs Anterior)
+  const currentWeekSpent = last7DaysTransactions
+    .filter(t => t.type === 'expense')
+    .reduce((acc, t) => acc + Number(t.amount || 0), 0);
+
+  const prevWeekSpent = prev7DaysTransactions
+    .filter(t => t.type === 'expense')
+    .reduce((acc, t) => acc + Number(t.amount || 0), 0);
+
+  const weekDiff = currentWeekSpent - prevWeekSpent;
 
   // Filtragem e Busca do Extrato na Aba Início
   const filteredExtratoTransactions = currentMonthTransactions.filter(item => {
@@ -375,15 +404,15 @@ export default function App() {
     return true;
   });
 
-  // Ranking
-  const topExpensesRanking = [...currentMonthTransactions]
+  // Ranking de Gastos
+  const topExpensesRanking = [...activeAnalysisTransactions]
     .filter(t => t.type === 'expense')
     .sort((a, b) => Number(b.amount || 0) - Number(a.amount || 0))
     .slice(0, 5);
 
   const highestSingleExpense = topExpensesRanking.length > 0 ? Number(topExpensesRanking[0].amount) : 1;
 
-  const expensesByCategory = currentMonthTransactions
+  const expensesByCategory = activeAnalysisTransactions
     .filter(t => t.type === 'expense')
     .reduce((acc, t) => {
       const cat = t.category || 'Gastos Aleatórios & Imprevistos';
@@ -399,6 +428,7 @@ export default function App() {
     .sort((a, b) => b[1].total - a[1].total);
 
   const highestCategoryExpense = rankedCategories.length > 0 ? rankedCategories[0][1].total : 1;
+  const villainCategory = rankedCategories.length > 0 ? rankedCategories[0] : null;
 
   // Helper de Ícones Temáticos
   const getCategoryIcon = (categoryName = '', description = '') => {
@@ -406,9 +436,9 @@ export default function App() {
     const cat = categoryName.toLowerCase();
 
     if (desc.includes('moto') || desc.includes('carro') || cat.includes('transporte') || cat.includes('veículo') || desc.includes('uber')) return Car;
-    if (desc.includes('lolla') || desc.includes('show') || desc.includes('cinema') || desc.includes('voo') || desc.includes('viagem') || cat.includes('lazer')) return Film;
+    if (desc.includes('lolla') || desc.includes('zayn') || desc.includes('show') || desc.includes('cinema') || desc.includes('voo') || desc.includes('viagem') || cat.includes('lazer')) return Film;
     if (desc.includes('mercado') || cat.includes('supermercado')) return ShoppingBag;
-    if (desc.includes('ifood') || desc.includes('restaurante') || cat.includes('alimentação') || desc.includes('lanche')) return Utensils;
+    if (desc.includes('restaurante') || cat.includes('alimentação') || desc.includes('ifood') || desc.includes('lanche')) return Utensils;
     if (desc.includes('corte') || desc.includes('cabelo') || cat.includes('beleza') || cat.includes('pessoal')) return Scissors;
     if (cat.includes('moradia') || cat.includes('aluguel')) return Home;
     if (cat.includes('consumo') || desc.includes('luz') || desc.includes('água') || desc.includes('gas') || desc.includes('gás') || desc.includes('gasolina') || desc.includes('posto')) return Droplets;
@@ -675,10 +705,46 @@ export default function App() {
               />
             )}
 
-            {/* ABA 5: ANÁLISE */}
+            {/* ABA 5: ANÁLISE COM DIAGNÓSTICO DO ESPECIALISTA & BALANÇO ESTILO INTER */}
             {activeTab === 'analise' && (
               <div className="space-y-4">
-                <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl flex items-center justify-between">
+                
+                {/* Seletor de Período & Botão Balanço Semanal */}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex gap-1 bg-slate-900 p-1 rounded-2xl border border-slate-800">
+                    <button
+                      onClick={() => setAnalysisPeriod('month')}
+                      className={`text-xs font-bold px-3 py-1.5 rounded-xl transition ${
+                        analysisPeriod === 'month'
+                          ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 shadow-sm'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      Mês Completo
+                    </button>
+                    <button
+                      onClick={() => setAnalysisPeriod('week')}
+                      className={`text-xs font-bold px-3 py-1.5 rounded-xl transition ${
+                        analysisPeriod === 'week'
+                          ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 shadow-sm'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      Últimos 7 Dias
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => setIsDigestModalOpen(true)}
+                    className="bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-black text-xs px-3 py-2 rounded-2xl flex items-center gap-1.5 shadow-md shadow-cyan-500/20 active:scale-95 transition"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>Ver Balanço</span>
+                  </button>
+                </div>
+
+                {/* Score de Saúde Financeira */}
+                <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-3xl shadow-xl flex items-center justify-between">
                   <div className="space-y-1">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Score de Saúde Financeira</span>
                     <div className="flex items-center gap-2">
@@ -704,8 +770,60 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* NOVO: Card "Diagnóstico do Especialista" (Feedback Dinâmico) */}
+                <div className="p-4 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-cyan-500/30 rounded-3xl shadow-xl space-y-3 relative overflow-hidden">
+                  <div className="flex items-center gap-2 border-b border-slate-800/80 pb-2.5">
+                    <div className="w-7 h-7 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+                      <Brain className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-extrabold text-slate-100 uppercase tracking-wider">Diagnóstico do DevFinanças</h3>
+                      <p className="text-[9px] text-cyan-400 font-medium">Análise em Tempo Real</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 text-xs text-slate-300 leading-relaxed">
+                    {healthScore < 70 ? (
+                      <>
+                        <p className="text-slate-300">
+                          Seu score está em <strong className="text-amber-400">{healthScore}/100 (Atenção)</strong> porque os compromissos fixos e despesas somaram a maior parte das entradas do mês.
+                        </p>
+                        
+                        {totalSmallExpenses > 150 && (
+                          <div className="p-2.5 rounded-2xl bg-slate-950/70 border border-rose-500/20 text-[11px] text-rose-300 flex items-start gap-2">
+                            <Zap className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                            <span>
+                              <strong>Alerta de Ralos:</strong> Você teve <strong>{formatCurrency(totalSmallExpenses)}</strong> em compras pequenas (≤ R$ 40). Cortar 50% desses impulsos pouparia ~{formatCurrency(totalSmallExpenses * 6)} por semestre.
+                            </span>
+                          </div>
+                        )}
+
+                        <div className="p-2.5 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 text-[11px] text-cyan-300 flex items-start gap-2">
+                          <Lightbulb className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
+                          <span>
+                            <strong>Plano de Ação para a Semana:</strong> Segure os gastos avulsos de alimentação/lazer nos próximos 5 dias para recuperar seu score para <strong>65+</strong> até o fechamento.
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-emerald-300 font-semibold">
+                          🎉 Excelente controle financeiro! Seu score está em <strong>{healthScore}/100</strong> e suas despesas estão bem alinhadas com as entradas.
+                        </p>
+                        <div className="p-2.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-300 flex items-start gap-2">
+                          <TrendingUp className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                          <span>
+                            <strong>Dica do Especialista:</strong> Com o caixa equilibrado, aproveite para destinar uma parte da folga para acelerar as Caixinhas ou seus Aportes de Investimento!
+                          </span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Cards de Ralos e Assinaturas */}
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3.5 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl space-y-1">
+                  <div className="p-3.5 bg-slate-900/90 border border-slate-800 rounded-3xl shadow-xl space-y-1">
                     <div className="flex items-center gap-1.5 text-rose-400">
                       <Zap className="w-4 h-4" />
                       <span className="text-[10px] font-bold uppercase tracking-wider">Ralos Invisíveis</span>
@@ -714,7 +832,7 @@ export default function App() {
                     <p className="text-[9px] text-slate-400">{smallExpenses.length} compras ≤ R$ 40</p>
                   </div>
 
-                  <div className="p-3.5 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl space-y-1">
+                  <div className="p-3.5 bg-slate-900/90 border border-slate-800 rounded-3xl shadow-xl space-y-1">
                     <div className="flex items-center gap-1.5 text-purple-400">
                       <RefreshCw className="w-4 h-4" />
                       <span className="text-[10px] font-bold uppercase tracking-wider">Assinaturas / Mês</span>
@@ -725,7 +843,7 @@ export default function App() {
                 </div>
 
                 {/* RANKING */}
-                <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl space-y-3">
+                <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-3xl shadow-xl space-y-3">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                     <div className="flex items-center gap-2">
                       <Trophy className="w-5 h-5 text-amber-400" />
@@ -813,7 +931,7 @@ export default function App() {
                         })}
                       </div>
                     ) : (
-                      <p className="text-xs text-slate-500 text-center py-4">Sem gastos no mês.</p>
+                      <p className="text-xs text-slate-500 text-center py-4">Sem gastos cadastrados no período.</p>
                     )
                   )}
 
@@ -888,10 +1006,11 @@ export default function App() {
                         })}
                       </div>
                     ) : (
-                      <p className="text-xs text-slate-500 text-center py-4">Sem gastos cadastrados.</p>
+                      <p className="text-xs text-slate-500 text-center py-4">Sem gastos cadastrados no período.</p>
                     )
                   )}
                 </div>
+
               </div>
             )}
 
@@ -1096,6 +1215,84 @@ export default function App() {
           </>
         )}
       </main>
+
+      {/* MODAL: Balanço Semanal & Mensal no Estilo Banco Inter */}
+      {isDigestModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-3xl p-5 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto no-scrollbar">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+                  <FileText className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-extrabold text-slate-100 uppercase tracking-wider">Fechamento Semanal</h3>
+                  <p className="text-[9px] text-slate-400">Resumo Digest • Minhas Finanças</p>
+                </div>
+              </div>
+              <button onClick={() => setIsDigestModalOpen(false)} className="p-1 rounded-lg text-slate-500 hover:text-slate-300">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Comparativo de Gastos */}
+            <div className="p-4 bg-slate-950/70 rounded-2xl border border-slate-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Gastos nos Últimos 7 Dias</span>
+                  <p className="text-xl font-black text-slate-100 mt-0.5">{formatCurrency(currentWeekSpent)}</p>
+                </div>
+
+                <div className="text-right">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Semana Anterior</span>
+                  <p className="text-xs font-bold text-slate-400 mt-0.5">{formatCurrency(prevWeekSpent)}</p>
+                  <span className={`text-[9px] font-black px-1.5 py-0.2 rounded-md inline-block mt-1 ${
+                    weekDiff <= 0 ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400' : 'bg-rose-500/10 border border-rose-500/30 text-rose-400'
+                  }`}>
+                    {weekDiff <= 0 ? `Economizou ${formatCurrency(Math.abs(weekDiff))}` : `+ ${formatCurrency(weekDiff)}`}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Categoria Vilã da Semana */}
+            {villainCategory && (
+              <div className="p-3.5 bg-slate-950/70 rounded-2xl border border-amber-500/20 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                    <Flame className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-[9px] font-extrabold uppercase text-amber-400 tracking-wider">Maior Categoria da Semana</span>
+                    <p className="text-xs font-bold text-slate-100">{villainCategory[0]}</p>
+                  </div>
+                </div>
+                <span className="text-xs font-black text-slate-100">{formatCurrency(villainCategory[1].total)}</span>
+              </div>
+            )}
+
+            {/* Veredito do Especialista */}
+            <div className="p-3.5 bg-cyan-500/10 border border-cyan-500/20 rounded-2xl space-y-1.5">
+              <div className="flex items-center gap-1.5 text-cyan-400 font-extrabold text-xs">
+                <Sparkles className="w-4 h-4" />
+                <span>Veredito do DevFinanças</span>
+              </div>
+              <p className="text-[11px] text-slate-300 leading-relaxed">
+                {currentWeekSpent <= 300 
+                  ? 'Você manteve um ritmo de gastos exemplar nos últimos 7 dias! Continue assim para fechar o mês com folga para investir.'
+                  : 'A semana teve uma concentração maior em compras de maior impacto. Tente priorizar apenas despesas essenciais nos próximos dias para reequilibrar o ritmo mensal.'}
+              </p>
+            </div>
+
+            <button
+              onClick={() => setIsDigestModalOpen(false)}
+              className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-black py-3 rounded-2xl text-xs uppercase tracking-wider active:scale-95 transition"
+            >
+              Entendido!
+            </button>
+          </div>
+        </div>
+      )}
 
       <TransactionModal
         isOpen={isModalOpen}
