@@ -10,7 +10,9 @@ import {
   Plus, LayoutDashboard, CreditCard, BarChart2, Calendar as CalendarIcon, 
   CheckCircle2, Clock, Trophy, Flame, Trash2, ChevronDown, 
   ChevronUp, ShieldCheck, AlertTriangle, RefreshCw, Zap,
-  ChevronLeft, ChevronRight, PiggyBank, TrendingUp
+  ChevronLeft, ChevronRight, PiggyBank, TrendingUp,
+  ShoppingBag, Utensils, Film, Sparkles, Home, Droplets,
+  Car, Scissors, HeartPulse, Dog, GraduationCap, DollarSign, Package
 } from 'lucide-react';
 
 export default function App() {
@@ -191,7 +193,6 @@ export default function App() {
     }
   }
 
-  // Substitui diretamente o valor total do rendimento no Supabase e no aplicativo (Sem duplicar nem mexer no caixa)
   async function handleAddYield(investId, val) {
     const targetInvest = investments.find(i => String(i.id) === String(investId));
     if (!targetInvest) return;
@@ -327,11 +328,15 @@ export default function App() {
   );
   const totalSubscriptionsMonthly = subscriptions.reduce((acc, t) => acc + Number(t.amount || 0), 0);
 
+  // Maiores Gastos Individuais
   const topExpensesRanking = [...currentMonthTransactions]
     .filter(t => t.type === 'expense')
     .sort((a, b) => Number(b.amount || 0) - Number(a.amount || 0))
     .slice(0, 5);
 
+  const highestSingleExpense = topExpensesRanking.length > 0 ? Number(topExpensesRanking[0].amount) : 1;
+
+  // Agrupamento por Categoria
   const expensesByCategory = currentMonthTransactions
     .filter(t => t.type === 'expense')
     .reduce((acc, t) => {
@@ -346,6 +351,27 @@ export default function App() {
 
   const rankedCategories = Object.entries(expensesByCategory)
     .sort((a, b) => b[1].total - a[1].total);
+
+  const highestCategoryExpense = rankedCategories.length > 0 ? rankedCategories[0][1].total : 1;
+
+  // Helper para escolher ícones dinâmicos por categoria/descrição
+  const getCategoryIcon = (categoryName = '', description = '') => {
+    const desc = description.toLowerCase();
+    const cat = categoryName.toLowerCase();
+
+    if (desc.includes('moto') || desc.includes('carro') || cat.includes('transporte') || cat.includes('veículo')) return Car;
+    if (desc.includes('show') || desc.includes('cinema') || desc.includes('voo') || desc.includes('viagem') || cat.includes('lazer')) return Film;
+    if (desc.includes('mercado') || cat.includes('supermercado')) return ShoppingBag;
+    if (desc.includes('ifood') || desc.includes('restaurante') || cat.includes('alimentação')) return Utensils;
+    if (desc.includes('corte') || desc.includes('cabelo') || cat.includes('beleza') || cat.includes('pessoal')) return Scissors;
+    if (cat.includes('moradia') || cat.includes('aluguel')) return Home;
+    if (cat.includes('consumo') || desc.includes('luz') || desc.includes('água') || desc.includes('gas')) return Droplets;
+    if (cat.includes('saúde') || desc.includes('farmácia')) return HeartPulse;
+    if (cat.includes('pet')) return Dog;
+    if (cat.includes('educação')) return GraduationCap;
+    if (cat.includes('financiamento')) return DollarSign;
+    return Sparkles;
+  };
 
   const calYear = calendarDate.getFullYear();
   const calMonth = calendarDate.getMonth();
@@ -499,7 +525,7 @@ export default function App() {
               />
             )}
 
-            {/* ABA 5: ANÁLISE */}
+            {/* ABA 5: ANÁLISE COM NOVO DESIGN DE RANKING */}
             {activeTab === 'analise' && (
               <div className="space-y-4">
                 <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl flex items-center justify-between">
@@ -548,11 +574,12 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* NOVO DESIGN DO RANKING FINANCEIRO */}
                 <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl space-y-3">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                     <div className="flex items-center gap-2">
                       <Trophy className="w-5 h-5 text-amber-400" />
-                      <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider">Ranking Financeiro</h3>
+                      <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider">Ranking de Impacto</h3>
                     </div>
 
                     <div className="flex gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
@@ -579,62 +606,117 @@ export default function App() {
                     </div>
                   </div>
 
+                  {/* Visualização: Maiores Gastos com Ícones e Barras de Impacto */}
                   {rankingMode === 'items' && (
                     topExpensesRanking.length > 0 ? (
-                      <div className="space-y-2 pt-1">
-                        {topExpensesRanking.map((item, idx) => (
-                          <div key={item.id} className="flex items-center justify-between p-2.5 bg-slate-950/60 rounded-xl border border-slate-800/80">
-                            <div className="flex items-center gap-2.5">
-                              <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-extrabold ${
-                                idx === 0 ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
-                                idx === 1 ? 'bg-slate-300/20 text-slate-300 border border-slate-300/30' :
-                                idx === 2 ? 'bg-orange-600/20 text-orange-400 border border-orange-600/30' :
-                                'bg-slate-800 text-slate-400'
-                              }`}>
-                                #{idx + 1}
-                              </span>
-                              <div>
-                                <p className="text-xs font-semibold text-slate-200">{item.description}</p>
-                                <p className="text-[10px] text-slate-400">{item.category}</p>
+                      <div className="space-y-2.5 pt-1">
+                        {topExpensesRanking.map((item, idx) => {
+                          const IconComponent = getCategoryIcon(item.category, item.description);
+                          const percentageImpact = ((Number(item.amount) / highestSingleExpense) * 100).toFixed(0);
+                          const isTop1 = idx === 0;
+
+                          return (
+                            <div 
+                              key={item.id} 
+                              className={`p-3 bg-slate-950/60 rounded-2xl border transition relative overflow-hidden ${
+                                isTop1 ? 'border-amber-500/40 shadow-lg shadow-amber-500/5' : 'border-slate-800/80'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between relative z-10">
+                                <div className="flex items-center gap-3">
+                                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                                    isTop1 
+                                      ? 'bg-amber-500/10 border border-amber-500/30 text-amber-400 shadow-sm shadow-amber-500/20' 
+                                      : 'bg-slate-800/60 border border-slate-700/50 text-cyan-400'
+                                  }`}>
+                                    <IconComponent className="w-4 h-4" />
+                                  </div>
+                                  <div>
+                                    <div className="flex items-center gap-1.5">
+                                      <p className="text-xs font-bold text-slate-100">{item.description}</p>
+                                      {isTop1 && (
+                                        <span className="text-[8px] font-black uppercase tracking-wider bg-amber-500/20 border border-amber-500/40 text-amber-400 px-1.5 py-0.2 rounded-md flex items-center gap-0.5">
+                                          <Flame className="w-2.5 h-2.5" /> Maior Gasto
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-[10px] text-slate-400 mt-0.5">{item.category}</p>
+                                  </div>
+                                </div>
+
+                                <div className="text-right">
+                                  <span className="text-xs font-black text-rose-400">
+                                    - {formatCurrency(item.amount)}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Barra de Impacto Visual */}
+                              <div className="w-full bg-slate-900 h-1.5 rounded-full mt-2.5 overflow-hidden">
+                                <div 
+                                  className={`h-full rounded-full transition-all duration-500 ${
+                                    isTop1 ? 'bg-gradient-to-r from-amber-500 to-rose-500' : 'bg-gradient-to-r from-cyan-500 to-blue-500'
+                                  }`}
+                                  style={{ width: `${percentageImpact}%` }}
+                                />
                               </div>
                             </div>
-                            <span className="text-xs font-bold text-rose-400">
-                              - {formatCurrency(item.amount)}
-                            </span>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     ) : (
                       <p className="text-xs text-slate-500 text-center py-4">Sem gastos no mês para o ranking.</p>
                     )
                   )}
 
+                  {/* Visualização: Por Categoria com Gaveta e Barra Proporcional */}
                   {rankingMode === 'categories' && (
                     rankedCategories.length > 0 ? (
-                      <div className="space-y-2 pt-1">
+                      <div className="space-y-2.5 pt-1">
                         {rankedCategories.map(([catName, data], idx) => {
                           const isExpanded = expandedCategory === catName;
+                          const IconComponent = getCategoryIcon(catName);
+                          const percentageImpact = ((data.total / highestCategoryExpense) * 100).toFixed(0);
+                          const isTop1 = idx === 0;
+
                           return (
-                            <div key={catName} className="bg-slate-950/60 rounded-xl border border-slate-800/80 overflow-hidden transition">
+                            <div key={catName} className={`bg-slate-950/60 rounded-2xl border overflow-hidden transition ${
+                              isTop1 ? 'border-amber-500/40' : 'border-slate-800/80'
+                            }`}>
                               <button
                                 onClick={() => toggleCategoryExpand(catName)}
-                                className="w-full flex items-center justify-between p-3 hover:bg-slate-800/30 transition text-left"
+                                className="w-full p-3 hover:bg-slate-800/30 transition text-left space-y-2.5"
                               >
-                                <div className="flex items-center gap-2.5">
-                                  <span className="w-6 h-6 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-xs font-extrabold text-cyan-400">
-                                    #{idx + 1}
-                                  </span>
-                                  <div>
-                                    <p className="text-xs font-bold text-slate-200">{catName}</p>
-                                    <p className="text-[10px] text-slate-400">{data.items.length} lançamento(s)</p>
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                                      isTop1 
+                                        ? 'bg-amber-500/10 border border-amber-500/30 text-amber-400' 
+                                        : 'bg-slate-800/60 border border-slate-700/50 text-cyan-400'
+                                    }`}>
+                                      <IconComponent className="w-4 h-4" />
+                                    </div>
+                                    <div>
+                                      <p className="text-xs font-bold text-slate-200">{catName}</p>
+                                      <p className="text-[10px] text-slate-400">{data.items.length} lançamento(s)</p>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-black text-rose-400">
+                                      - {formatCurrency(data.total)}
+                                    </span>
+                                    {isExpanded ? <ChevronUp className="w-4 h-4 text-cyan-400" /> : <ChevronDown className="w-4 h-4 text-slate-500" />}
                                   </div>
                                 </div>
 
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs font-extrabold text-rose-400">
-                                    - {formatCurrency(data.total)}
-                                  </span>
-                                  {isExpanded ? <ChevronUp className="w-4 h-4 text-cyan-400" /> : <ChevronDown className="w-4 h-4 text-slate-500" />}
+                                <div className="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden">
+                                  <div 
+                                    className={`h-full rounded-full transition-all duration-500 ${
+                                      isTop1 ? 'bg-gradient-to-r from-amber-500 to-rose-500' : 'bg-gradient-to-r from-cyan-500 to-blue-500'
+                                    }`}
+                                    style={{ width: `${percentageImpact}%` }}
+                                  />
                                 </div>
                               </button>
 
