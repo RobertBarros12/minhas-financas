@@ -25,7 +25,7 @@ export default function Bills({ transactions, onToggleStatus, onDelete, selected
     { id: 'installments', label: 'Parcelados / Carnê', icon: ShoppingBag },
   ];
 
-  // Helper para identificar tipos específicos de contas
+  // Helper para identificar Assinaturas
   const isSubscription = (item) => {
     const desc = (item.description || '').toLowerCase();
     const cat = (item.category || '').toLowerCase();
@@ -40,6 +40,7 @@ export default function Bills({ transactions, onToggleStatus, onDelete, selected
            desc.includes('academia');
   };
 
+  // Helper para identificar Financiamentos
   const isFinancing = (item) => {
     const desc = (item.description || '').toLowerCase();
     const cat = (item.category || '').toLowerCase();
@@ -53,31 +54,40 @@ export default function Bills({ transactions, onToggleStatus, onDelete, selected
            desc.includes('terreno');
   };
 
+  // Helper para identificar Cartão
   const isCard = (item) => {
     const cat = (item.category || '').toLowerCase();
-    return item.paymentMethod === 'Cartão de Crédito' || cat.includes('cartão');
+    return item.paymentMethod === 'Cartão de Crédito' || cat.includes('cartão') || cat.includes('fatura');
   };
 
+  // Helper para identificar Parcelados Comuns (Excluindo Financiamentos)
   const isInstallment = (item) => {
-    // É parcelado MAS NÃO É financiamento
     if (isFinancing(item)) return false;
     const desc = item.description || '';
     return Number(item.installments) > 1 || /\(\d+\/\d+\)/.test(desc);
   };
 
-  // Vencimentos do Mês: Apenas contas, boletos, faturas, assinaturas, financiamentos e parcelamentos reais
+  // Vencimentos do Mês: Apenas contas fixas, boletos recorrentes, faturas, financiamentos e parcelas
   const isRealBill = (item) => {
     const cat = (item.category || '').toLowerCase();
     const desc = (item.description || '').toLowerCase();
 
-    // Se for assinatura, financiamento, parcelamento ou fatura de cartão -> É CONTA
-    if (isSubscription(item) || isFinancing(item) || isInstallment(item) || isCard(item)) return true;
+    // 1. Se for assinatura, financiamento ou parcelamento -> É CONTA
+    if (isSubscription(item) || isFinancing(item) || isInstallment(item)) return true;
 
-    // Categorias tradicionais de contas e consumo
-    if (cat.includes('moradia') || cat.includes('consumo') || cat.includes('educação') || cat.includes('saúde')) return true;
-    if (desc.includes('aluguel') || desc.includes('condomínio') || desc.includes('energia') || desc.includes('luz') || desc.includes('água') || desc.includes('internet')) return true;
+    // 2. Faturas de cartão de crédito explícitas
+    if (cat.includes('fatura') || desc.includes('fatura')) return true;
 
-    // Despesas pontuais (ex: Uber, iFood, Lilian, Lançamento Rápido, Aporte CDB) NÃO entram na aba de Contas
+    // 3. Contas fixas essenciais de moradia/serviços
+    if (desc.includes('aluguel') || desc.includes('condomínio') || desc.includes('condominio') || 
+        desc.includes('energia') || desc.includes('luz') || desc.includes('água') || desc.includes('agua') || 
+        desc.includes('internet') || desc.includes('wifi') || desc.includes('gás encanado') ||
+        desc.includes('plano de saúde') || desc.includes('faculdade') || desc.includes('escola') ||
+        desc.includes('seguro')) {
+      return true;
+    }
+
+    // 4. Todas as compras pontuais (sabonete, lanche, mercado, farmácia, uber, etc.) são ignoradas da aba Contas
     return false;
   };
 
@@ -109,8 +119,8 @@ export default function Bills({ transactions, onToggleStatus, onDelete, selected
     if (isFinancing({ category, description })) return Car;
     if (isSubscription({ category, description })) return Tv;
     if (desc.includes('geladeira') || desc.includes('fogão') || desc.includes('aluguel') || cat.includes('moradia')) return Home;
-    if (cat.includes('saúde') || desc.includes('farmácia')) return HeartPulse;
-    if (cat.includes('educação')) return GraduationCap;
+    if (desc.includes('saúde') || desc.includes('plano')) return HeartPulse;
+    if (desc.includes('educação') || desc.includes('faculdade')) return GraduationCap;
     if (isCard({ category, paymentMethod: '' })) return CreditCard;
     return ShoppingBag;
   };
