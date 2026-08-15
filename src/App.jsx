@@ -62,13 +62,12 @@ export default function App() {
     setLoading(false);
   }
 
-  // Busca Caixinhas / Reservas da Nuvem (com suporte a sub-itens em JSON ou memória local)
+  // Busca Caixinhas / Reservas da Nuvem com Sub-itens
   async function fetchVaults() {
     const { data, error } = await supabase.from('vaults').select('*');
     if (error) {
       console.error('Erro ao buscar caixinhas:', error);
     } else if (data) {
-      // Carrega sub-itens salvos localmente ou da tabela
       const savedItemsMap = JSON.parse(localStorage.getItem('minhas_financas_vault_items') || '{}');
 
       const formatted = data.map(v => ({
@@ -155,7 +154,6 @@ export default function App() {
   async function handleUpdateVaultItems(vaultId, updatedItems) {
     setVaults(prev => prev.map(v => String(v.id) === String(vaultId) ? { ...v, items: updatedItems } : v));
     
-    // Salva localmente com persistência imediata
     const savedItemsMap = JSON.parse(localStorage.getItem('minhas_financas_vault_items') || '{}');
     savedItemsMap[String(vaultId)] = updatedItems;
     localStorage.setItem('minhas_financas_vault_items', JSON.stringify(savedItemsMap));
@@ -228,8 +226,8 @@ export default function App() {
     }
   }
 
-  // Transações no Supabase
-  async function handleSaveTransaction(newTx) {
+  // Salvar Transações e Vincular Automaticamente à Caixinha
+  async function handleSaveTransaction(newTx, vaultLinkInfo = null) {
     const txList = Array.isArray(newTx) ? newTx : [newTx];
 
     const payload = txList.map(item => ({
@@ -252,6 +250,22 @@ export default function App() {
       alert('Erro ao salvar no banco de dados.');
     } else {
       setTransactions(prev => [...txList, ...prev]);
+
+      // Se houver vínculo com caixinha, adiciona o item como concluído na caixinha
+      if (vaultLinkInfo && vaultLinkInfo.vaultId) {
+        const targetVault = vaults.find(v => String(v.id) === String(vaultLinkInfo.vaultId));
+        if (targetVault) {
+          const currentItems = targetVault.items || [];
+          const newItem = {
+            id: `item-${Date.now()}`,
+            title: vaultLinkInfo.description,
+            plannedAmount: vaultLinkInfo.amount,
+            actualAmount: vaultLinkInfo.amount,
+            completed: true,
+          };
+          handleUpdateVaultItems(targetVault.id, [...currentItems, newItem]);
+        }
+      }
     }
   }
 
@@ -640,7 +654,7 @@ export default function App() {
               />
             )}
 
-            {/* ABA 3: RESERVAS & METAS COM SUB-ITENS */}
+            {/* ABA 3: RESERVAS & METAS */}
             {activeTab === 'caixinhas' && (
               <Vaults
                 vaults={vaults}
@@ -1088,6 +1102,7 @@ export default function App() {
         onClose={() => setIsModalOpen(false)}
         onSave={handleSaveTransaction}
         initialData={quickData}
+        vaults={vaults}
       />
 
       {/* Menu Inferior */}

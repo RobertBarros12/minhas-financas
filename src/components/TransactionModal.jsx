@@ -1,340 +1,259 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { X, Layers, RefreshCw, Zap } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, DollarSign, Calendar, Tag, CreditCard, Layers, Sparkles, Target } from 'lucide-react';
 
-export default function TransactionModal({ isOpen, onClose, onSave, initialData }) {
-  const [type, setType] = useState('expense');
-  const [amount, setAmount] = useState('');
+const CATEGORIES = [
+  'Supermercado & Feira',
+  'Restaurantes & iFood',
+  'Uber / Transporte Público',
+  'Combustível & Manutenção',
+  'Moradia (Aluguel, Luz, Água, Net)',
+  'Lazer, Shows & Viagens',
+  'Saúde & Farmácia',
+  'Cuidados Pessoais & Roupas',
+  'Educação & Cursos',
+  'Assinaturas & Serviços Recorrentes',
+  'Financiamentos & Empréstimos',
+  'Investimentos & Aplicações',
+  'Reserva & Caixinhas',
+  'Gastos Aleatórios & Imprevistos',
+  'Salário & Remuneração',
+  'Pix Recebido',
+  'Rendimentos & Dividendos',
+  'Outras Entradas'
+];
+
+const PAYMENT_METHODS = [
+  'Conta Corrente / Pix',
+  'Cartão de Crédito',
+  'Cartão de Débito',
+  'Dinheiro Físico',
+  'Boleto Bancário'
+];
+
+export default function TransactionModal({ isOpen, onClose, onSave, initialData, vaults = [] }) {
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('Assinaturas & Serviços Recorrentes');
-  const [paymentMethod, setPaymentMethod] = useState('Cartão de Crédito');
+  const [amount, setAmount] = useState('');
+  const [type, setType] = useState('expense');
+  const [category, setCategory] = useState(CATEGORIES[0]);
+  const [paymentMethod, setPaymentMethod] = useState(PAYMENT_METHODS[0]);
   const [status, setStatus] = useState('paid');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  
-  const [isInstallment, setIsInstallment] = useState(false);
-  const [installments, setInstallments] = useState(2);
+  const [installments, setInstallments] = useState(1);
   const [isRecurring, setIsRecurring] = useState(false);
-
-  const amountInputRef = useRef(null);
+  const [selectedVaultId, setSelectedVaultId] = useState('');
 
   useEffect(() => {
-    if (isOpen) {
-      if (initialData) {
-        if (initialData.description) setDescription(initialData.description);
-        if (initialData.type) setType(initialData.type);
-        if (initialData.category) setCategory(initialData.category);
-        if (initialData.paymentMethod) setPaymentMethod(initialData.paymentMethod);
-      } else {
-        setDescription('');
-      }
-
-      setTimeout(() => {
-        if (amountInputRef.current) {
-          amountInputRef.current.focus();
-        }
-      }, 100);
+    if (initialData) {
+      setDescription(initialData.description || '');
+      setType(initialData.type || 'expense');
+      setCategory(initialData.category || CATEGORIES[0]);
+      setPaymentMethod(initialData.paymentMethod || PAYMENT_METHODS[0]);
+      setStatus(initialData.status || 'paid');
+      setDate(initialData.date || new Date().toISOString().split('T')[0]);
+      setInstallments(initialData.installments || 1);
+      setIsRecurring(initialData.isRecurring || false);
+      setSelectedVaultId(initialData.vaultId || '');
+    } else {
+      setDescription('');
+      setAmount('');
+      setType('expense');
+      setCategory(CATEGORIES[0]);
+      setPaymentMethod(PAYMENT_METHODS[0]);
+      setStatus('paid');
+      setDate(new Date().toISOString().split('T')[0]);
+      setInstallments(1);
+      setIsRecurring(false);
+      setSelectedVaultId('');
     }
   }, [initialData, isOpen]);
 
-  useEffect(() => {
-    if (!initialData && type === 'income') {
-      setPaymentMethod('Conta Corrente / Pix');
-      setCategory('Salário / Prolabore');
-    } else if (!initialData) {
-      setPaymentMethod('Cartão de Crédito');
-      setCategory('Assinaturas & Serviços Recorrentes');
-    }
-  }, [type, initialData]);
-
   if (!isOpen) return null;
-
-  const showInstallmentOption = type === 'expense' && !isRecurring && (
-    paymentMethod === 'Cartão de Crédito' || 
-    paymentMethod === 'Crediário / Carnê' || 
-    paymentMethod === 'Financiamento'
-  );
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!amount) return;
+    if (!description.trim() || !amount) return;
 
-    const finalDescription = description.trim() || (initialData?.description || 'Lançamento Rápido');
-    const parsedAmount = parseFloat(amount.replace(',', '.'));
-    const baseDate = new Date(date + 'T00:00:00');
+    const parsedAmount = parseFloat(String(amount).replace(',', '.'));
+    if (isNaN(parsedAmount) || parsedAmount <= 0) return;
 
-    const transactionsToSave = [];
+    const numInstallments = parseInt(installments, 10) || 1;
 
-    // SE FOR ASSINATURA RECORRENTE: Monta 12 meses no banco
-    if (type === 'expense' && isRecurring) {
-      for (let i = 0; i < 12; i++) {
-        const currentDate = new Date(baseDate);
-        currentDate.setMonth(baseDate.getMonth() + i);
-        const formattedDate = currentDate.toISOString().split('T')[0];
+    if (numInstallments > 1 && type === 'expense') {
+      const installmentAmount = (parsedAmount / numInstallments).toFixed(2);
+      const [yearStr, monthStr, dayStr] = date.split('-');
+      const baseYear = parseInt(yearStr, 10);
+      const baseMonthIndex = parseInt(monthStr, 10) - 1;
+      const baseDay = parseInt(dayStr, 10);
 
-        transactionsToSave.push({
-          id: `${Date.now()}-rec-${i}`,
-          description: finalDescription,
-          amount: parsedAmount.toFixed(2),
-          type,
-          category: 'Assinaturas & Serviços Recorrentes',
-          paymentMethod,
-          status: i === 0 ? status : 'pending',
-          date: formattedDate,
-          installments: 1,
-          isRecurring: true,
-        });
-      }
-    } 
-    // SE FOR COMPRA PARCELADA OU NORMAL
-    else {
-      const totalInstallments = showInstallmentOption && isInstallment ? parseInt(installments) : 1;
-      const installmentValue = parsedAmount / totalInstallments;
+      const transactionsToCreate = [];
 
-      for (let i = 0; i < totalInstallments; i++) {
-        const currentDate = new Date(baseDate);
-        currentDate.setMonth(baseDate.getMonth() + i);
-        
-        const formattedDate = currentDate.toISOString().split('T')[0];
-        const descSuffix = totalInstallments > 1 ? ` (${i + 1}/${totalInstallments})` : '';
+      for (let i = 0; i < numInstallments; i++) {
+        const installmentDate = new Date(baseYear, baseMonthIndex + i, baseDay);
+        const y = installmentDate.getFullYear();
+        const m = String(installmentDate.getMonth() + 1).padStart(2, '0');
+        const d = String(installmentDate.getDate()).padStart(2, '0');
 
-        transactionsToSave.push({
-          id: `${Date.now()}-${i}`,
-          description: `${finalDescription}${descSuffix}`,
-          amount: installmentValue.toFixed(2),
+        transactionsToCreate.push({
+          id: `tx-${Date.now()}-${i}`,
+          description: `${description.trim()} (${i + 1}/${numInstallments})`,
+          amount: parseFloat(installmentAmount),
           type,
           category,
           paymentMethod,
           status: i === 0 ? status : 'pending',
-          date: formattedDate,
-          installments: totalInstallments,
+          date: `${y}-${m}-${d}`,
+          installments: numInstallments,
           isRecurring: false,
+          vaultId: selectedVaultId || null,
         });
       }
+
+      onSave(transactionsToCreate, selectedVaultId ? { vaultId: selectedVaultId, description: description.trim(), amount: parsedAmount } : null);
+    } else {
+      const singleTx = {
+        id: `tx-${Date.now()}`,
+        description: description.trim(),
+        amount: parsedAmount,
+        type,
+        category,
+        paymentMethod,
+        status,
+        date,
+        installments: 1,
+        isRecurring,
+        vaultId: selectedVaultId || null,
+      };
+
+      onSave(singleTx, selectedVaultId ? { vaultId: selectedVaultId, description: description.trim(), amount: parsedAmount } : null);
     }
 
-    onSave(transactionsToSave);
-
-    setAmount('');
-    setDescription('');
-    setIsInstallment(false);
-    setIsRecurring(false);
-    setInstallments(2);
     onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
       <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-3xl p-5 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto no-scrollbar">
         
-        {/* Cabeçalho */}
+        {/* Topo do Modal */}
         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
           <div className="flex items-center gap-2">
-            {initialData ? (
-              <span className="text-xs font-extrabold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-1 rounded-xl flex items-center gap-1">
-                <Zap className="w-3.5 h-3.5" /> Atalho: {initialData.description}
-              </span>
-            ) : (
-              <h2 className="text-sm font-extrabold text-slate-100 uppercase tracking-wider">Novo Lançamento</h2>
-            )}
+            <div className="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+              <DollarSign className="w-4 h-4" />
+            </div>
+            <h3 className="text-xs font-extrabold text-slate-100 uppercase tracking-wider">Novo Lançamento</h3>
           </div>
-          <button onClick={onClose} className="p-1 rounded-xl text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition">
-            <X className="w-5 h-5" />
+          <button onClick={onClose} className="p-1 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-slate-800 transition">
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3.5">
           
-          {!initialData && (
-            <div className="grid grid-cols-2 gap-2 p-1 bg-slate-950 rounded-2xl border border-slate-800">
-              <button
-                type="button"
-                onClick={() => setType('expense')}
-                className={`py-2 rounded-xl text-xs font-bold transition ${
-                  type === 'expense' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'text-slate-400'
-                }`}
-              >
-                🔴 Saída (Gasto)
-              </button>
-              <button
-                type="button"
-                onClick={() => setType('income')}
-                className={`py-2 rounded-xl text-xs font-bold transition ${
-                  type === 'income' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-400'
-                }`}
-              >
-                🟢 Entrada (Ganho)
-              </button>
-            </div>
-          )}
+          {/* Tipo: Saída ou Entrada */}
+          <div className="grid grid-cols-2 gap-2 p-1 bg-slate-950 rounded-2xl border border-slate-800">
+            <button
+              type="button"
+              onClick={() => setType('expense')}
+              className={`py-2 rounded-xl text-xs font-bold transition ${
+                type === 'expense'
+                  ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              🔴 Despesa (Saída)
+            </button>
+            <button
+              type="button"
+              onClick={() => setType('income')}
+              className={`py-2 rounded-xl text-xs font-bold transition ${
+                type === 'income'
+                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              🟢 Receita (Entrada)
+            </button>
+          </div>
 
-          {/* Digite o Valor */}
+          {/* Descrição */}
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider">Digite Apenas o Valor R$</label>
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Descrição</label>
             <input
-              ref={amountInputRef}
-              type="number"
-              step="0.01"
-              placeholder="0,00"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="w-full bg-slate-950 border border-cyan-500/50 rounded-2xl p-3 text-2xl font-black text-cyan-400 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 transition"
+              type="text"
+              placeholder="Ex: Ingresso Lolla, Supermercado, Salário"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-2.5 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 transition"
               required
               autoFocus
             />
           </div>
 
-          {/* Descrição */}
-          {!initialData && (
+          {/* Valor R$ */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Valor R$</label>
+            <input
+              type="number"
+              step="0.01"
+              placeholder="0,00"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="w-full bg-slate-950 border border-cyan-500/40 rounded-2xl p-3 text-lg font-black text-cyan-400 focus:outline-none focus:border-cyan-500 transition"
+              required
+            />
+          </div>
+
+          {/* Vínculo Opcional com Caixinha/Meta */}
+          {type === 'expense' && vaults.length > 0 && (
+            <div className="p-3 bg-slate-950/70 border border-slate-800/80 rounded-2xl space-y-1.5">
+              <div className="flex items-center gap-1.5 text-cyan-400">
+                <Target className="w-3.5 h-3.5" />
+                <label className="text-[10px] font-extrabold uppercase tracking-wider">Vincular a uma Meta / Caixinha (Opcional)</label>
+              </div>
+              <select
+                value={selectedVaultId}
+                onChange={(e) => setSelectedVaultId(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
+              >
+                <option value="">Nenhuma meta vinculada</option>
+                {vaults.map(v => (
+                  <option key={v.id} value={v.id}>🎯 {v.name}</option>
+                ))}
+              </select>
+              <p className="text-[9px] text-slate-500">
+                Ao vincular, esse gasto será adicionado e computado automaticamente no progresso da meta selecionada!
+              </p>
+            </div>
+          )}
+
+          {/* Categoria e Forma de Pagamento */}
+          <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Descrição</label>
-              <input
-                type="text"
-                placeholder="Ex: Spotify, Netflix, Mercado, Uber"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-2.5 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 transition"
-                required
-              />
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Categoria</label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
+              >
+                {CATEGORIES.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
             </div>
-          )}
 
-          {/* Forma de Pagamento e Categoria */}
-          {!initialData && (
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Forma de Pagamento</label>
-                <select
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-2.5 text-xs text-slate-100 focus:outline-none focus:border-cyan-500"
-                >
-                  {type === 'income' ? (
-                    <>
-                      <option value="Conta Corrente / Pix">Conta Corrente / Pix</option>
-                      <option value="Dinheiro em Espécie">Dinheiro em Espécie</option>
-                      <option value="Vale Alimentação / Refeição">Vale Alimentação / Refeição</option>
-                    </>
-                  ) : (
-                    <>
-                      <option value="Cartão de Crédito">Cartão de Crédito</option>
-                      <option value="Pix / Débito">Pix / Débito</option>
-                      <option value="Dinheiro">Dinheiro</option>
-                      <option value="Crediário / Carnê">Crediário / Carnê</option>
-                      <option value="Financiamento">Financiamento</option>
-                    </>
-                  )}
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Categoria</label>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-2.5 text-xs text-slate-100 focus:outline-none focus:border-cyan-500"
-                >
-                  {type === 'expense' ? (
-                    <>
-                      <optgroup label="📺 Streaming & Assinaturas">
-                        <option value="Assinaturas & Serviços Recorrentes">Streamings (Spotify, Netflix, Prime)</option>
-                        <option value="Serviços Digitais & Software">Serviços Digitais & IA (ChatGPT, Cloud)</option>
-                      </optgroup>
-
-                      <optgroup label="🏠 Moradia & Contas Fixas">
-                        <option value="Moradia & Contas Fixas">Moradia (Aluguel, Condomínio)</option>
-                        <option value="Contas de Consumo">Contas (Luz, Água, Internet, Gás)</option>
-                        <option value="Impostos & Taxas">Impostos (IPTU, Taxas)</option>
-                      </optgroup>
-
-                      <optgroup label="🛒 Alimentação">
-                        <option value="Supermercado & Feira">Supermercado & Feira</option>
-                        <option value="Restaurantes & iFood">Restaurantes, iFood & Bares</option>
-                      </optgroup>
-
-                      <optgroup label="🚗 Transporte & Veículo">
-                        <option value="Uber / Transporte Público">Uber / Transporte Público</option>
-                        <option value="Combustível & Manutenção">Combustível & Manutenção Carro/Moto</option>
-                        <option value="IPVA, Seguro & Pedágio">IPVA, Seguro & Pedágio</option>
-                      </optgroup>
-
-                      <optgroup label="🛍️ Compras & Pessoal">
-                        <option value="Vestuário, Roupas & Compras">Vestuário, Roupas & Calçados</option>
-                        <option value="Cuidados Pessoais & Beleza">Barbearia, Salão & Cosméticos</option>
-                        <option value="Eletrônicos & Casa">Eletrônicos & Utensílios</option>
-                      </optgroup>
-
-                      <optgroup label="💊 Saúde & Família">
-                        <option value="Saúde & Farmácia">Saúde, Farmácia & Consultas</option>
-                        <option value="Pets & Veterinário">Pets, Ração & Veterinário</option>
-                        <option value="Educação & Cursos">Educação, Livros & Cursos</option>
-                      </optgroup>
-
-                      <optgroup label="💳 Dívidas & Imprevistos">
-                        <option value="Financiamentos & Empréstimos">Financiamentos & Empréstimos</option>
-                        <option value="Gastos Aleatórios & Imprevistos">Gastos Aleatórios & Imprevistos</option>
-                      </optgroup>
-                    </>
-                  ) : (
-                    <>
-                      <option value="Salário / Prolabore">Salário / Prolabore</option>
-                      <option value="Pix Recebido">Pix Recebido</option>
-                      <option value="Vendas & Serviços">Vendas & Serviços</option>
-                      <option value="Rendimentos & Outros">Rendimentos & Dividendos</option>
-                    </>
-                  )}
-                </select>
-              </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Forma de Pagamento</label>
+              <select
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
+              >
+                {PAYMENT_METHODS.map(method => (
+                  <option key={method} value={method}>{method}</option>
+                ))}
+              </select>
             </div>
-          )}
-
-          {/* Marcar como Assinatura Mensal */}
-          {type === 'expense' && (
-            <div className="p-3 bg-slate-950 rounded-2xl border border-purple-500/30 flex items-center justify-between">
-              <span className="text-xs font-bold text-purple-400 flex items-center gap-1.5">
-                <RefreshCw className="w-4 h-4" /> Assinatura Recorrente (Mensal)?
-              </span>
-              <input
-                type="checkbox"
-                checked={isRecurring}
-                onChange={(e) => {
-                  setIsRecurring(e.target.checked);
-                  if (e.target.checked) setIsInstallment(false);
-                }}
-                className="w-4 h-4 accent-purple-500 rounded cursor-pointer"
-              />
-            </div>
-          )}
-
-          {/* Bloco de Compra Parcelada */}
-          {showInstallmentOption && (
-            <div className="p-3 bg-slate-950 rounded-2xl border border-cyan-500/30 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-cyan-400 flex items-center gap-1.5">
-                  <Layers className="w-4 h-4" /> Compra Parcelada?
-                </span>
-                <input
-                  type="checkbox"
-                  checked={isInstallment}
-                  onChange={(e) => setIsInstallment(e.target.checked)}
-                  className="w-4 h-4 accent-cyan-500 rounded cursor-pointer"
-                />
-              </div>
-
-              {isInstallment && (
-                <div className="flex items-center gap-2 pt-1">
-                  <span className="text-xs text-slate-400">Número de parcelas:</span>
-                  <select
-                    value={installments}
-                    onChange={(e) => setInstallments(e.target.value)}
-                    className="flex-1 bg-slate-900 border border-slate-800 rounded-xl p-2 text-xs font-bold text-cyan-400 focus:outline-none"
-                  >
-                    {[2, 3, 4, 5, 6, 10, 12, 18, 24, 36, 48, 60, 72].map(n => (
-                      <option key={n} value={n}>{n}x parcelas</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-            </div>
-          )}
+          </div>
 
           {/* Data e Status */}
           <div className="grid grid-cols-2 gap-2">
@@ -344,33 +263,74 @@ export default function TransactionModal({ isOpen, onClose, onSave, initialData 
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-2.5 text-xs text-slate-100 focus:outline-none focus:border-cyan-500"
+                className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
               />
             </div>
 
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Status</label>
-              <button
-                type="button"
-                onClick={() => setStatus(status === 'paid' ? 'pending' : 'paid')}
-                className={`w-full py-2.5 rounded-2xl text-xs font-bold border transition ${
-                  status === 'paid'
-                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                    : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
-                }`}
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
               >
-                {status === 'paid' ? '✓ Pago / Quitado' : '⏳ Pendente'}
-              </button>
+                <option value="paid">✓ Pago / Recebido</option>
+                <option value="pending">⏳ Pendente / A Vencer</option>
+              </select>
             </div>
           </div>
 
-          <button
-            type="submit"
-            className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black py-3.5 rounded-2xl text-xs shadow-lg shadow-cyan-500/25 active:scale-95 transition tracking-wider uppercase"
-          >
-            Confirmar Lançamento
-          </button>
+          {/* Parcelamento e Recorrência (Apenas para despesas) */}
+          {type === 'expense' && (
+            <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-800/80">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Parcelamento</label>
+                <select
+                  value={installments}
+                  onChange={(e) => setInstallments(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
+                >
+                  <option value="1">À vista (1x)</option>
+                  {[2, 3, 4, 5, 6, 10, 12, 18, 24, 36, 48].map(n => (
+                    <option key={n} value={n}>{n}x Parcelas</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2 pt-5">
+                <input
+                  type="checkbox"
+                  id="recurringCheck"
+                  checked={isRecurring}
+                  onChange={(e) => setIsRecurring(e.target.checked)}
+                  className="w-4 h-4 rounded accent-cyan-500 cursor-pointer"
+                />
+                <label htmlFor="recurringCheck" className="text-xs font-semibold text-slate-300 cursor-pointer">
+                  Assinatura Fixa
+                </label>
+              </div>
+            </div>
+          )}
+
+          {/* Botões de Ação */}
+          <div className="flex gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 bg-slate-950 border border-slate-800 text-slate-400 py-3 rounded-2xl text-xs font-bold active:scale-95 transition"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-black py-3 rounded-2xl text-xs uppercase tracking-wider shadow-lg shadow-cyan-500/20 active:scale-95 transition"
+            >
+              Salvar
+            </button>
+          </div>
+
         </form>
+
       </div>
     </div>
   );
