@@ -32,7 +32,7 @@ export default function App() {
   });
 
   // Estados de Filtro e Busca do Extrato (Início)
-  const [extratoFilter, setExtratoFilter] = useState('all'); // 'all', 'expense', 'income'
+  const [extratoFilter, setExtratoFilter] = useState('all');
   const [extratoSearch, setExtratoSearch] = useState('');
 
   // Estados do Calendário
@@ -62,17 +62,21 @@ export default function App() {
     setLoading(false);
   }
 
-  // Busca Caixinhas / Reservas da Nuvem
+  // Busca Caixinhas / Reservas da Nuvem (com suporte a sub-itens em JSON ou memória local)
   async function fetchVaults() {
     const { data, error } = await supabase.from('vaults').select('*');
     if (error) {
       console.error('Erro ao buscar caixinhas:', error);
     } else if (data) {
+      // Carrega sub-itens salvos localmente ou da tabela
+      const savedItemsMap = JSON.parse(localStorage.getItem('minhas_financas_vault_items') || '{}');
+
       const formatted = data.map(v => ({
         id: String(v.id),
         name: v.name,
         targetAmount: Number(v.target_amount),
         currentAmount: Number(v.current_amount),
+        items: v.items || savedItemsMap[String(v.id)] || [],
       }));
       setVaults(formatted);
     }
@@ -145,6 +149,16 @@ export default function App() {
 
       handleSaveTransaction(tx);
     }
+  }
+
+  // Atualizar Sub-itens da Caixinha
+  async function handleUpdateVaultItems(vaultId, updatedItems) {
+    setVaults(prev => prev.map(v => String(v.id) === String(vaultId) ? { ...v, items: updatedItems } : v));
+    
+    // Salva localmente com persistência imediata
+    const savedItemsMap = JSON.parse(localStorage.getItem('minhas_financas_vault_items') || '{}');
+    savedItemsMap[String(vaultId)] = updatedItems;
+    localStorage.setItem('minhas_financas_vault_items', JSON.stringify(savedItemsMap));
   }
 
   async function handleDeleteVault(vaultId) {
@@ -378,7 +392,7 @@ export default function App() {
     const cat = categoryName.toLowerCase();
 
     if (desc.includes('moto') || desc.includes('carro') || cat.includes('transporte') || cat.includes('veículo') || desc.includes('uber')) return Car;
-    if (desc.includes('show') || desc.includes('cinema') || desc.includes('voo') || desc.includes('viagem') || cat.includes('lazer')) return Film;
+    if (desc.includes('lolla') || desc.includes('show') || desc.includes('cinema') || desc.includes('voo') || desc.includes('viagem') || cat.includes('lazer')) return Film;
     if (desc.includes('mercado') || cat.includes('supermercado')) return ShoppingBag;
     if (desc.includes('ifood') || desc.includes('restaurante') || cat.includes('alimentação') || desc.includes('lanche')) return Utensils;
     if (desc.includes('corte') || desc.includes('cabelo') || cat.includes('beleza') || cat.includes('pessoal')) return Scissors;
@@ -438,7 +452,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans pb-24 selection:bg-cyan-500 selection:text-slate-950">
       
-      {/* Header com Seletor de Mês/Ano */}
+      {/* Header */}
       <header className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-md border-b border-slate-800/80 px-4 py-3 flex items-center justify-between shadow-lg shadow-black/50">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-extrabold text-slate-950 shadow-lg shadow-cyan-500/30">
@@ -470,7 +484,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* Conteúdo Principal Otimizado para Mobile */}
+      {/* Conteúdo Principal */}
       <main className="max-w-lg mx-auto p-4 space-y-4">
         {loading ? (
           <div className="p-12 text-center text-xs text-slate-500 animate-pulse">
@@ -478,7 +492,7 @@ export default function App() {
           </div>
         ) : (
           <>
-            {/* ABA 1: INÍCIO COM EXTRATO FILTRÁVEL */}
+            {/* ABA 1: INÍCIO */}
             {activeTab === 'inicio' && (
               <div className="space-y-4">
                 <Summary
@@ -491,10 +505,8 @@ export default function App() {
 
                 <QuickShortcuts onSelectShortcut={handleOpenQuickModal} />
 
-                {/* Extrato do Mês com Filtros e Busca Rápida */}
+                {/* Extrato do Mês */}
                 <div className="bg-slate-900/80 rounded-3xl border border-slate-800 overflow-hidden shadow-xl backdrop-blur-sm p-3.5 space-y-3">
-                  
-                  {/* Cabeçalho do Extrato */}
                   <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
                     <div>
                       <h3 className="text-xs font-extrabold text-slate-100 uppercase tracking-wider">
@@ -506,7 +518,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Barra de Busca Rápida */}
+                  {/* Busca */}
                   <div className="relative">
                     <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none" />
                     <input
@@ -526,7 +538,7 @@ export default function App() {
                     )}
                   </div>
 
-                  {/* Pílulas de Filtro (Todos / Saídas / Entradas) */}
+                  {/* Pílulas */}
                   <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-950/80 rounded-2xl border border-slate-800/80">
                     <button
                       onClick={() => setExtratoFilter('all')}
@@ -562,7 +574,6 @@ export default function App() {
                     </button>
                   </div>
 
-                  {/* Lista de Cards do Extrato Filtrado */}
                   <div className="space-y-2 pt-1 max-h-[480px] overflow-y-auto pr-0.5 no-scrollbar">
                     {filteredExtratoTransactions.length > 0 ? (
                       filteredExtratoTransactions.map(item => {
@@ -610,16 +621,8 @@ export default function App() {
                         );
                       })
                     ) : (
-                      <div className="p-6 text-center text-xs text-slate-500 space-y-1">
-                        <p>Nenhum lançamento encontrado para os filtros selecionados.</p>
-                        {extratoSearch && (
-                          <button
-                            onClick={() => setExtratoSearch('')}
-                            className="text-[10px] font-bold text-cyan-400 underline pt-1"
-                          >
-                            Limpar busca
-                          </button>
-                        )}
+                      <div className="p-6 text-center text-xs text-slate-500">
+                        Nenhum lançamento encontrado.
                       </div>
                     )}
                   </div>
@@ -637,13 +640,14 @@ export default function App() {
               />
             )}
 
-            {/* ABA 3: RESERVAS */}
+            {/* ABA 3: RESERVAS & METAS COM SUB-ITENS */}
             {activeTab === 'caixinhas' && (
               <Vaults
                 vaults={vaults}
                 onCreateVault={handleCreateVault}
                 onUpdateVaultAmount={handleUpdateVaultAmount}
                 onDeleteVault={handleDeleteVault}
+                onUpdateVaultItems={handleUpdateVaultItems}
               />
             )}
 
@@ -706,7 +710,7 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* RANKING FINANCEIRO */}
+                {/* RANKING */}
                 <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl space-y-3">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                     <div className="flex items-center gap-2">
@@ -795,7 +799,7 @@ export default function App() {
                         })}
                       </div>
                     ) : (
-                      <p className="text-xs text-slate-500 text-center py-4">Sem gastos no mês para o ranking.</p>
+                      <p className="text-xs text-slate-500 text-center py-4">Sem gastos no mês.</p>
                     )
                   )}
 
@@ -851,7 +855,7 @@ export default function App() {
 
                               {isExpanded && (
                                 <div className="p-3 bg-slate-900/60 border-t border-slate-800/80 divide-y divide-slate-800/50 space-y-2">
-                                  <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider pb-1">Lançamentos da Categoria {catName}:</p>
+                                  <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider pb-1">Lançamentos:</p>
                                   {data.items.map(subItem => (
                                     <div key={subItem.id} className="pt-2 flex items-center justify-between">
                                       <div>
@@ -870,7 +874,7 @@ export default function App() {
                         })}
                       </div>
                     ) : (
-                      <p className="text-xs text-slate-500 text-center py-4">Sem gastos cadastrados no mês.</p>
+                      <p className="text-xs text-slate-500 text-center py-4">Sem gastos cadastrados.</p>
                     )
                   )}
                 </div>
@@ -1086,7 +1090,7 @@ export default function App() {
         initialData={quickData}
       />
 
-      {/* Menu Inferior Completo */}
+      {/* Menu Inferior */}
       <nav className="fixed bottom-0 left-0 right-0 bg-slate-950/90 backdrop-blur-lg border-t border-slate-800/80 z-40 shadow-2xl">
         <div className="max-w-lg mx-auto flex items-center justify-around p-1.5">
           {[
